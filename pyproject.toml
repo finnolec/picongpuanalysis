@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "picongpuanalysis"
+version = "0.1.0"
+description = "A library for analyzing PIConGPU simulations"
+authors = ["Finn-Ole Carstens <f.carstens@hzdr.de>"]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+numpy = "^1.20"
+scipy = "^1.6"
+
+[tool.poetry.extras]
+loading = ["openpmd_api", "scipy"]
+postprocessing = ["numpy", "scipy"]
+plotting = ["matplotlib"]
