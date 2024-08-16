@@ -20,6 +20,13 @@ def load_vector_field_component(path: str, iteration: int, fieldname: str, field
 
     chunkdata = i.meshes[fieldname][fieldcomponent].load_chunk()
     unit = i.meshes[fieldname][fieldcomponent].get_attribute("unitSI")
+
+    ret_dict = {"data": np.swapaxes(chunkdata, 0, 2) * unit, "axis_labels": ["x_position", "y_position", "z_position"]}
+
+    if "unitDimension" in i.meshes[fieldname].attributes:
+        unit_dimension = i.meshes[fieldname].get_attribute("unitDimension")
+        ret_dict["unit_dimension"] = unit_dimension
+
     series.flush()
     series.close()
 
@@ -28,10 +35,9 @@ def load_vector_field_component(path: str, iteration: int, fieldname: str, field
 
     x_space, y_space, z_space = load_vector_grid(path, iteration, fieldname, fieldcomponent)
 
-    ret_dict = {}
-    ret_dict[fieldname] = {
-        fieldcomponent: {"data": chunkdata * unit, "x_space": x_space, "y_space": y_space, "z_space": z_space}
-    }
+    ret_dict["x_space"] = x_space
+    ret_dict["y_space"] = y_space
+    ret_dict["z_space"] = z_space
 
     return ret_dict
 

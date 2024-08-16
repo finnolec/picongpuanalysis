@@ -8,8 +8,5 @@ authors = ["Finn-Ole Carstens <f.carstens@hzdr.de>"]
 python = "^3.12"
 numpy = "^1.20"
 scipy = "^1.6"
-
-[tool.poetry.extras]
-loading = ["openpmd_api", "scipy"]
-postprocessing = ["numpy", "scipy"]
-plotting = ["matplotlib"]
+openpmd_api = "^0.15.2"
+matplotlib = "^3.9"
