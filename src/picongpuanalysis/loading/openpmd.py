@@ -23,6 +23,8 @@ def load_vector_field_component(path: str, iteration: int, field_name: str, fiel
     chunkdata = i.meshes[field_name][field_component].load_chunk()
     unit = i.meshes[field_name][field_component].get_attribute("unitSI")
 
+    series.flush()
+
     ret_dict = {"data": np.swapaxes(chunkdata, 0, 2) * unit}
 
     ret_dict["axis_labels"] = ["x_position", "y_position", "z_position"]

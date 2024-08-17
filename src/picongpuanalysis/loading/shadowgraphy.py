@@ -1,5 +1,8 @@
 import itertools
 import openpmd_api as opmd
+import numpy as np
+
+from picongpuanalysis.utils.units import unit_m, unit_unitless, unit_omega
 
 
 def load_shadowgraphy_fourier(path: str, iteration: int, use_si_units: bool = True) -> dict:
@@ -36,11 +39,46 @@ def load_shadowgraphy_fourier_component(
     chunkdata = i.meshes[opmd_name][opmd_component].load_chunk()
     unit = i.meshes[opmd_name][opmd_component].get_attribute("unitSI")
 
+    series.flush()
+
+    shape = chunkdata.shape
+
     ret_dict = {"data": chunkdata * unit}
     del chunkdata
 
+    if "unitDimension" in i.meshes[opmd_name].attributes:
+        unit_dimension = i.meshes[opmd_name].get_attribute("unitDimension")
+        ret_dict["unit_dimension"] = unit_dimension
+
     if use_si_units:
         ret_dict["axis_labels"] = ["x_position", "y_position", "omega_frequency"]
+        ret_dict["axis_units"] = [unit_m, unit_m, unit_omega]
+
+        # TODO check if unit correct
+        x_space = i.meshes["Spatial positions"]["x"].load_chunk()
+        y_space = i.meshes["Spatial positions"]["y"].load_chunk()
+        omega_space = i.meshes["Fourier Transform Frequencies"]["omega"].load_chunk()
+        series.flush()
+
+        # TODO see below
+        ret_dict["x_space"] = x_space[2]
+        ret_dict["y_space"] = y_space[1]
+        if field_sign == "positive":
+            ret_dict["omega_space"] = omega_space[0][shape[2] // 2 :]
+        else:
+            ret_dict["omega_space"] = omega_space[0][: shape[2] // 2]
+    else:
+        ret_dict["axis_labels"] = ["x_position_index", "y_position_index", "omega_frequency_index"]
+        ret_dict["axis_units"] = [unit_unitless, unit_unitless, unit_unitless]
+        # TODO not sure if shape[2] or shape[1] for x and y
+        ret_dict["x_space"] = np.arange(shape[2])
+        ret_dict["y_space"] = np.arange(shape[1])
+        ret_dict["omega_space"] = np.arange(shape[0])
+
+    series.close()
+
+    del i
+    del series
 
     return ret_dict
 
