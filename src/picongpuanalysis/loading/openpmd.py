@@ -9,14 +9,15 @@ def load_vector_field_component(path: str, iteration: int, field_name: str, fiel
     Loads a vector field component from an openPMD file.
 
     Parameters:
-    path (str): The path to the openPMD file.
-    iteration (int): The iteration number of the data to load.
-    field_name (str): The name of the field to load.
-    field_component (str): The component of the field to load.
+        path (str): The path to the openPMD file.
+        iteration (int): The iteration number of the data to load.
+        field_name (str): The name of the field to load.
+        field_component (str): The component of the field to load.
 
     Returns:
-    dict: A dictionary containing the loaded vector field data.
+        dict: A dictionary containing the loaded vector field data.
     """
+
     series = opmd.Series(path, opmd.Access.read_only)
     i = series.iterations[iteration]
 

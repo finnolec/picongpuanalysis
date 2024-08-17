@@ -6,6 +6,17 @@ from picongpuanalysis.utils.units import unit_m, unit_unitless, unit_omega
 
 
 def load_shadowgraphy_fourier(path: str, iteration: int, use_si_units: bool = True) -> dict:
+    """
+    Loads full shadowgraphy plugin fourier data from an openPMD file.
+
+    Parameters:
+        path (str): The path to the shadowgraphy plugin openPMD file.
+        iteration (int): The iteration number of simulation.
+        use_si_units (bool): Whether to use SI units for the data. Defaults to True.
+
+    Returns:
+        dict: A dictionary containing the loaded shadowgraphy fourier data.
+    """
     field_components = ["x", "y"]
     field_names = ["E", "B"]
     field_signs = ["positive", "negative"]
@@ -27,6 +38,20 @@ def load_shadowgraphy_fourier(path: str, iteration: int, use_si_units: bool = Tr
 def load_shadowgraphy_fourier_component(
     path: str, iteration: int, field_name: str, field_component: str, field_sign: str, use_si_units: bool = True
 ) -> dict:
+    """
+    Loads single shadowgraphy plugin fourier data component from an openPMD file.
+
+    Parameters:
+        path (str): The path to the shadowgraphy plugin openPMD file.
+        iteration (int): The iteration number of simulation.
+        field_name (str): The name of the field. Must be "E" or "B".
+        field_component (str): The component of the field. Must be "x" or "y".
+        field_sign (str): The sign of the field. Must be "positive" or "negative".
+        use_si_units (bool): Whether to use SI units for the data. Defaults to True.
+
+    Returns:
+        dict: A dictionary containing the loaded shadowgraphy fourier data.
+    """
     assert (field_name == "E") or (field_name == "B"), "field_name must be E or B"
     assert (field_component == "x") or (field_component == "y"), "field_component must be x or y"
     assert (field_sign == "positive") or (field_sign == "negative"), "field_sign must be positive or negative"
@@ -84,6 +109,17 @@ def load_shadowgraphy_fourier_component(
 
 
 def _get_openpmd_field_component_name(field_name: str, field_component: str, field_sign: str) -> tuple:
+    """
+    Returns the openPMD field component name based on the provided field name, component, and sign.
+
+    Parameters:
+        field_name (str): The name of the field. Must be "E" or "B".
+        field_component (str): The component of the field. Must be "x" or "y".
+        field_sign (str): The sign of the field. Must be "positive" or "negative".
+
+    Returns:
+        tuple: A tuple containing the openPMD field name and the field component name.
+    """
     assert (field_name == "E") or (field_name == "B"), "field_name must be E or B"
     assert (field_component == "x") or (field_component == "y"), "field_component must be x or y"
     assert (field_sign == "positive") or (field_sign == "negative"), "field_sign must be positive or negative"
