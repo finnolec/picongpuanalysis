@@ -47,6 +47,9 @@ def load_vector_field_component(path: str, iteration: int, field_name: str, fiel
     ret_dict["y_space"] = y_space
     ret_dict["z_space"] = z_space
 
+    ret_dict["name"] = f"{field_name}{field_component}"
+    ret_dict["iteration"] = iteration
+
     return ret_dict
 
 
