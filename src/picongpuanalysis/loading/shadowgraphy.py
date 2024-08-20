@@ -82,16 +82,16 @@ def load_shadowgraphy_fourier_component(
         # TODO check if unit correct
         x_space = i.meshes["Spatial positions"]["x"].load_chunk()
         y_space = i.meshes["Spatial positions"]["y"].load_chunk()
-        omega_space = i.meshes["Fourier Transform Frequencies"]["omega"].load_chunk()
+        omega_space = i.meshes["Fourier Transform Frequencies"]["omegas"].load_chunk()
         series.flush()
 
         # TODO see below
-        ret_dict["x_space"] = x_space[2]
-        ret_dict["y_space"] = y_space[1]
+        ret_dict["x_space"] = x_space[0, 0, :]
+        ret_dict["y_space"] = y_space[0, :, 0]
         if field_sign == "positive":
-            ret_dict["omega_space"] = omega_space[0][shape[2] // 2 :]
+            ret_dict["omega_space"] = omega_space[:, 0, 0][shape[0] :]
         else:
-            ret_dict["omega_space"] = omega_space[0][: shape[2] // 2]
+            ret_dict["omega_space"] = omega_space[:, 0, 0][: shape[0]]
     else:
         ret_dict["axis_labels"] = ["x_position_index", "y_position_index", "omega_frequency_index"]
         ret_dict["axis_units"] = [unit_unitless, unit_unitless, unit_unitless]

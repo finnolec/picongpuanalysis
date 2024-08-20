@@ -4,7 +4,7 @@ import numpy as np
 
 
 def plot_electric_field_mesh(
-    ax: plt.Axes, field: dict, cmap: str = "bwr", title: str = None, aspect: str = "equal"
+    ax: plt.Axes, field: dict, cmap: str = "bwr", title: str = None, aspect: str = "equal", norm: str = None
 ) -> None:
     """
     Plot the electric field mesh on the given Axes object.
@@ -20,11 +20,15 @@ def plot_electric_field_mesh(
             "{field['name']} - timestep {field['iteration']:06d}". Defaults to None.
         aspect (str, optional): The aspect ratio of the plot. Must be "equal" or "auto".
             Defaults to "equal".
+        norm (str, optional): The normalization of the colorbar. Must be "linear", "log" or "symlog".
 
     Returns:
         None
     """
     assert aspect == "equal" or aspect == "auto", "aspect must be 'equal' or 'auto'"
+    assert (
+        norm is None or norm == "linear" or norm == "log" or norm == "symlog"
+    ), "norm must be 'linear', 'log' or 'symlog'"
 
     data = field["data"]
     assert len(data.shape) == 2, "data must be a 2D array"
@@ -37,7 +41,13 @@ def plot_electric_field_mesh(
         title = f"{field['name']} - timestep {field['iteration']:06d}"
 
     # Ensure symmetric colorbar
-    norm = col.Normalize(-np.max(np.abs(data)), np.max(np.abs(data)))
+    if norm is None or norm == "linear":
+        norm = col.Normalize(-np.max(np.abs(data)), np.max(np.abs(data)))
+    elif norm == "log":
+        norm = col.LogNorm(vmin=np.min(data), vmax=np.max(data))
+    elif norm == "symlog":
+        linthresh = np.min(np.abs(data)[np.abs(data) > 0])
+        norm = col.SymLogNorm(linthresh=linthresh, vmin=-np.max(np.abs(data)), vmax=np.max(np.abs(data)))
 
     pcm = ax.pcolormesh(xm, ym, data, cmap=cmap, norm=norm)
 

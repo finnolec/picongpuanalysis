@@ -38,6 +38,8 @@ def field_transpose(field: dict) -> dict:
     Returns:
         dict: The input field with its data and axis labels transposed.
     """
+    assert len(field["data"].shape) == 2, "data must be a 2D array"
+
     field["data"] = np.transpose(field["data"])
     field["axis_labels"] = np.flip(field["axis_labels"])
 
