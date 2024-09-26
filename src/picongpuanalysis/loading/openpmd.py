@@ -1,9 +1,11 @@
 import openpmd_api as opmd
 import numpy as np
+import typeguard
 
 from picongpuanalysis.utils.units import unit_m
 
 
+@typeguard.typechecked
 def load_vector_field_component(path: str, iteration: int, field_name: str, field_component: str) -> dict:
     """
     Loads a vector field component from an openPMD file.
@@ -53,6 +55,7 @@ def load_vector_field_component(path: str, iteration: int, field_name: str, fiel
     return ret_dict
 
 
+@typeguard.typechecked
 def load_vector_field(path: str, iteration: int, field_name: str) -> dict:
     components = ["x", "y", "z"]
 
@@ -63,6 +66,7 @@ def load_vector_field(path: str, iteration: int, field_name: str) -> dict:
     return ret_dict
 
 
+@typeguard.typechecked
 def load_vector_grid(path: str, iteration: int, field_name: str, field_component: str) -> tuple:
     series = opmd.Series(path, opmd.Access.read_only)
     i = series.iterations[iteration]
@@ -88,6 +92,7 @@ def load_vector_grid(path: str, iteration: int, field_name: str, field_component
     return x_space, y_space, z_space
 
 
+@typeguard.typechecked
 def load_scalar_grid(path: str, iteration: int, field_name: str) -> tuple:
     series = opmd.Series(path, opmd.Access.read_only)
     i = series.iterations[iteration]

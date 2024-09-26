@@ -1,6 +1,8 @@
 import numpy as np
+import typeguard
 
 
+@typeguard.typechecked
 def field_mean(field: dict, axis: int) -> dict:
     """
     This function calculates the mean of a given field along a specified axis.
@@ -28,6 +30,7 @@ def field_mean(field: dict, axis: int) -> dict:
     return field
 
 
+@typeguard.typechecked
 def field_transpose(field: dict) -> dict:
     """
     This function transposes the data and axis labels of a given field.

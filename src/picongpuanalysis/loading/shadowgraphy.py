@@ -1,10 +1,12 @@
 import itertools
 import openpmd_api as opmd
 import numpy as np
+import typeguard
 
 from picongpuanalysis.utils.units import unit_m, unit_unitless, unit_omega
 
 
+@typeguard.typechecked
 def load_shadowgraphy_fourier(path: str, iteration: int, use_si_units: bool = True) -> dict:
     """
     Loads full shadowgraphy plugin fourier data from an openPMD file.
@@ -35,6 +37,7 @@ def load_shadowgraphy_fourier(path: str, iteration: int, use_si_units: bool = Tr
     return ret_dict
 
 
+@typeguard.typechecked
 def load_shadowgraphy_fourier_component(
     path: str, iteration: int, field_name: str, field_component: str, field_sign: str, use_si_units: bool = True
 ) -> dict:
@@ -68,7 +71,8 @@ def load_shadowgraphy_fourier_component(
 
     shape = chunkdata.shape
 
-    ret_dict = {"data": chunkdata * unit}
+    # Transpose to move data in x, y, omega order, it is omega, y, x before
+    ret_dict = {"data": chunkdata.transpose() * unit}
     del chunkdata
 
     if "unitDimension" in i.meshes[opmd_name].attributes:
@@ -79,13 +83,11 @@ def load_shadowgraphy_fourier_component(
         ret_dict["axis_labels"] = ["x_position", "y_position", "omega_frequency"]
         ret_dict["axis_units"] = [unit_m, unit_m, unit_omega]
 
-        # TODO check if unit correct
         x_space = i.meshes["Spatial positions"]["x"].load_chunk()
         y_space = i.meshes["Spatial positions"]["y"].load_chunk()
         omega_space = i.meshes["Fourier Transform Frequencies"]["omegas"].load_chunk()
         series.flush()
 
-        # TODO see below
         ret_dict["x_space"] = x_space[0, 0, :]
         ret_dict["y_space"] = y_space[0, :, 0]
         if field_sign == "positive":
@@ -95,7 +97,6 @@ def load_shadowgraphy_fourier_component(
     else:
         ret_dict["axis_labels"] = ["x_position_index", "y_position_index", "omega_frequency_index"]
         ret_dict["axis_units"] = [unit_unitless, unit_unitless, unit_unitless]
-        # TODO not sure if shape[2] or shape[1] for x and y
         ret_dict["x_space"] = np.arange(shape[2])
         ret_dict["y_space"] = np.arange(shape[1])
         ret_dict["omega_space"] = np.arange(shape[0])
@@ -108,6 +109,7 @@ def load_shadowgraphy_fourier_component(
     return ret_dict
 
 
+@typeguard.typechecked
 def _get_openpmd_field_component_name(field_name: str, field_component: str, field_sign: str) -> tuple:
     """
     Returns the openPMD field component name based on the provided field name, component, and sign.

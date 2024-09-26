@@ -1,8 +1,10 @@
 import matplotlib.pyplot as plt
 import matplotlib.colors as col
 import numpy as np
+import typeguard
 
 
+@typeguard.typechecked
 def plot_electric_field_mesh(
     ax: plt.Axes, field: dict, cmap: str = "bwr", title: str = None, aspect: str = "equal", norm: str = None
 ) -> None:
@@ -20,8 +22,7 @@ def plot_electric_field_mesh(
             "{field['name']} - timestep {field['iteration']:06d}". Defaults to None.
         aspect (str, optional): The aspect ratio of the plot. Must be "equal" or "auto".
             Defaults to "equal".
-        norm (str, optional): The normalization of the colorbar. Must be "linear", "log" or "symlog".
-
+        norm (str, optional): The normalization of the colorbar. Must be "linear", "log" or "symlog". Defaults to None.
     Returns:
         None
     """
@@ -40,14 +41,20 @@ def plot_electric_field_mesh(
     if title is None:
         title = f"{field['name']} - timestep {field['iteration']:06d}"
 
+    # TODO allow nmatplotlib norm maps as parameter to function
     # Ensure symmetric colorbar
     if norm is None or norm == "linear":
         norm = col.Normalize(-np.max(np.abs(data)), np.max(np.abs(data)))
     elif norm == "log":
         norm = col.LogNorm(vmin=np.min(data), vmax=np.max(data))
     elif norm == "symlog":
-        linthresh = np.min(np.abs(data)[np.abs(data) > 0])
-        norm = col.SymLogNorm(linthresh=linthresh, vmin=-np.max(np.abs(data)), vmax=np.max(np.abs(data)))
+        if np.max(np.abs(data)) == 0:
+            print("Warning: data is all zero, using linear Norm instead.")
+            linthresh = 1
+            norm = col.Normalize(-linthresh, linthresh)
+        else:
+            linthresh = np.min(np.abs(data)[np.abs(data) > 0])
+            norm = col.SymLogNorm(linthresh=linthresh, vmin=-np.max(np.abs(data)), vmax=np.max(np.abs(data)))
 
     pcm = ax.pcolormesh(xm, ym, data, cmap=cmap, norm=norm)
 
@@ -60,6 +67,7 @@ def plot_electric_field_mesh(
     ax.get_figure().colorbar(pcm)
 
 
+@typeguard.typechecked
 def _get_field_coodinate_mesh(field: dict) -> tuple:
     """
     This function generates a coordinate mesh for a given field.
@@ -95,6 +103,7 @@ def _get_field_coodinate_mesh(field: dict) -> tuple:
     return x, y
 
 
+@typeguard.typechecked
 def _get_field_coordinate_names(field: dict) -> tuple:
     """
     This function generates the coordinate names for a given field.
