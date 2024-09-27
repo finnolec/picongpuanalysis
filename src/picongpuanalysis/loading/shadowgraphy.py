@@ -110,6 +110,32 @@ def load_shadowgraphy_fourier_component(
 
 
 @typeguard.typechecked
+def get_delta_t(path: str, iteration: int) -> float:
+    """
+    Loads the time step value from a shadowgraphy openPMD file.
+
+    Parameters:
+        path (str): The path to the shadowgraphy openPMD file.
+        iteration (int): The iteration number of the data to load.
+
+    Returns:
+        float: The time step value.
+    """
+    series = opmd.Series(path, opmd.Access.read_only)
+    i = series.iterations[iteration]
+
+    time_step = i.meshes["shadowgram"][opmd.Mesh_Record_Component.SCALAR].get_attribute("dt")
+
+    series.flush()
+    series.close()
+
+    del i
+    del series
+
+    return time_step
+
+
+@typeguard.typechecked
 def _get_openpmd_field_component_name(field_name: str, field_component: str, field_sign: str) -> tuple:
     """
     Returns the openPMD field component name based on the provided field name, component, and sign.

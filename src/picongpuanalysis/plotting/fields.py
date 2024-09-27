@@ -41,7 +41,7 @@ def plot_electric_field_mesh(
     if title is None:
         title = f"{field['name']} - timestep {field['iteration']:06d}"
 
-    # TODO allow nmatplotlib norm maps as parameter to function
+    # TODO allow matplotlib norm maps as parameter to function
     # Ensure symmetric colorbar
     if norm is None or norm == "linear":
         norm = col.Normalize(-np.max(np.abs(data)), np.max(np.abs(data)))
