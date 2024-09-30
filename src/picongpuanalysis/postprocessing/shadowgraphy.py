@@ -2,7 +2,35 @@ import itertools
 import numpy as np
 import typeguard
 
-from picongpuanalysis.utils.units import unit_k, unit_m, unit_omega
+from picongpuanalysis.utils.units import unit_k, unit_m, unit_omega, unit_t
+
+
+def compute_shadowgram(fields: dict) -> dict:
+    assert (
+        "Ex" in fields.keys() and "Ey" in fields.keys() and "Bx" in fields.keys() and "By" in fields.keys()
+    ), "Fields must contain Ex, Ey, Bx, and By"
+    assert (
+        fields["Ex"]["axis_units"]
+        == fields["Ey"]["axis_units"]
+        == fields["Bx"]["axis_units"]
+        == fields["By"]["axis_units"]
+        == [unit_m, unit_m, unit_t]
+    ), "Field units must be [unit_m, unit_m, unit_t]"
+
+    delta_t = fields["Ex"]["t_space"][1] - fields["Ex"]["t_space"][0]
+
+    poynting_vectors = fields["Ex"]["data"] * fields["By"]["data"] - fields["Ey"]["data"] * fields["Bx"]["data"]
+    data = np.real(np.sum(poynting_vectors, axis=2)) * delta_t
+
+    ret_dict = {}
+    ret_dict["data"] = data
+    ret_dict["delta_t"] = delta_t
+    ret_dict["axis_labels"] = ["x_position", "y_position", "t_time"]
+    ret_dict["axis_units"] = [unit_m, unit_m, unit_t]
+    ret_dict["x_space"] = fields["Ex"]["x_space"]
+    ret_dict["y_space"] = fields["Ex"]["y_space"]
+
+    return ret_dict
 
 
 @typeguard.typechecked
@@ -49,6 +77,48 @@ def fft_to_kko(fields: dict) -> dict:
         )
 
         ret_dict[field_name]["omega_space"] = fields[field_name]["omega_space"]
+
+    return ret_dict
+
+
+@typeguard.typechecked
+def ifft_to_xyt(fields: dict) -> dict:
+    field_names = list(fields.keys())
+
+    ret_dict = {}
+
+    for field_name in field_names:
+        assert fields[field_name]["axis_units"] == [
+            unit_k,
+            unit_k,
+            unit_omega,
+        ], "Field units must be [unit_k, unit_k, unit_omega]"
+
+        data_xyt = np.fft.ifftn(np.fft.ifftshift(fields[field_name]["data"], axes=(0, 1, 2)), axes=(0, 1, 2))
+        ret_dict.setdefault(field_name, {"data": data_xyt})
+
+        ret_dict[field_name]["axis_labels"] = ["x_position", "y_position", "t_time"]
+        ret_dict[field_name]["axis_units"] = [unit_m, unit_m, unit_t]
+
+        ret_dict[field_name]["x_space"] = np.fft.fftshift(
+            np.fft.fftfreq(
+                fields[field_name]["kx_space"].shape[0],
+                np.abs(fields[field_name]["kx_space"][1] - fields[field_name]["kx_space"][0]),
+            )
+        )
+        ret_dict[field_name]["y_space"] = np.fft.fftshift(
+            np.fft.fftfreq(
+                fields[field_name]["ky_space"].shape[0],
+                np.abs(fields[field_name]["ky_space"][1] - fields[field_name]["ky_space"][0]),
+            )
+        )
+        # TODO figure out start time of plugin and use it here
+        ret_dict[field_name]["t_space"] = np.fft.fftshift(
+            np.fft.fftfreq(
+                fields[field_name]["omega_space"].shape[0],
+                np.abs(fields[field_name]["omega_space"][1] - fields[field_name]["omega_space"][0]) / 2 / np.pi,
+            )
+        )
 
     return ret_dict
 
