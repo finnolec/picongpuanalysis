@@ -7,6 +7,16 @@ from picongpuanalysis.utils.units import unit_k, unit_m, unit_omega, unit_t
 
 
 def compute_shadowgram(fields: dict) -> dict:
+    """
+    Compute a shadowgram in z direction from the given electric and magnetic fields.
+
+    Parameters:
+        fields (dict): A dictionary with field names as keys and dictionaries containing the field data,
+            axis labels, and axis units as values. The fields must be in (x, y, t) space.
+
+    Returns:
+        dict: A dictionary of the shadowgram data, axis labels, and axis units.
+    """
     assert (
         "Ex" in fields.keys() and "Ey" in fields.keys() and "Bx" in fields.keys() and "By" in fields.keys()
     ), "Fields must contain Ex, Ey, Bx, and By"
@@ -84,6 +94,17 @@ def fft_to_kko(fields: dict) -> dict:
 
 @typeguard.typechecked
 def ifft_to_xyt(fields: dict) -> dict:
+    """
+    Transforms fields from k-omega space to x-y-t space.
+
+    Parameters:
+        fields (dict): A dictionary with field names as keys and dictionaries containing the field data,
+            axis labels, and axis units as values.
+
+    Returns:
+        dict: A dictionary with the same keys as the input, but with the field data and axis units
+            transformed to x-y-t space.
+    """
     field_names = list(fields.keys())
 
     ret_dict = {}
