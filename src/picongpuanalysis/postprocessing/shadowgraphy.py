@@ -1,5 +1,6 @@
 import itertools
 import numpy as np
+import scipy.constants as const
 import typeguard
 
 from picongpuanalysis.utils.units import unit_k, unit_m, unit_omega, unit_t
@@ -20,13 +21,13 @@ def compute_shadowgram(fields: dict) -> dict:
     delta_t = fields["Ex"]["t_space"][1] - fields["Ex"]["t_space"][0]
 
     poynting_vectors = fields["Ex"]["data"] * fields["By"]["data"] - fields["Ey"]["data"] * fields["Bx"]["data"]
-    data = np.real(np.sum(poynting_vectors, axis=2)) * delta_t
+    data = np.sum(np.real(poynting_vectors), axis=2) * delta_t / const.mu_0
 
     ret_dict = {}
     ret_dict["data"] = data
     ret_dict["delta_t"] = delta_t
-    ret_dict["axis_labels"] = ["x_position", "y_position", "t_time"]
-    ret_dict["axis_units"] = [unit_m, unit_m, unit_t]
+    ret_dict["axis_labels"] = ["x_position", "y_position"]
+    ret_dict["axis_units"] = [unit_m, unit_m]
     ret_dict["x_space"] = fields["Ex"]["x_space"]
     ret_dict["y_space"] = fields["Ex"]["y_space"]
 
@@ -94,7 +95,11 @@ def ifft_to_xyt(fields: dict) -> dict:
             unit_omega,
         ], "Field units must be [unit_k, unit_k, unit_omega]"
 
-        data_xyt = np.fft.ifftn(np.fft.ifftshift(fields[field_name]["data"], axes=(0, 1, 2)), axes=(0, 1, 2))
+        data_xyt = np.fft.ifftn(np.fft.ifftshift(fields[field_name]["data"], axes=(0, 1)), axes=(0, 1))
+        # TODO check if the following still works with propagators
+        # Otherwise np.fft.ifft(data_xyt, axis=2, norm="backward") might be correct.
+        # It is weird that there is no fftshift anymore
+        data_xyt = np.fft.fft(data_xyt, axis=2, norm="forward")
         ret_dict.setdefault(field_name, {"data": data_xyt})
 
         ret_dict[field_name]["axis_labels"] = ["x_position", "y_position", "t_time"]
