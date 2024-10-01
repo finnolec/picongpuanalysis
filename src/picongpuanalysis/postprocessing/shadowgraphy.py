@@ -274,6 +274,56 @@ def ifft_to_xyt(fields: dict) -> dict:
 
 
 @typeguard.typechecked
+def propagate_fields(
+    fields: dict, delta_z: float, propagation_method: str = "angular_spectrum", override_fields: bool = True
+) -> dict:
+    """
+    Propagates fields in k-omega space along the z-axis by a distance of delta_z.
+
+    Parameters:
+        fields (dict): A dictionary with field names as keys and dictionaries containing the field data,
+            axis labels, and axis units as values.
+        delta_z (float): The distance to propagate the fields along the z-axis. Units are meters.
+        propagation_method (str): The method to use for propagation. Can be either "angular_spectrum" or "fresnel".
+            Defaults to "angular_spectrum".
+        override_fields (bool): If True, the input dictionary will be modified. If False, a deep copy of the dictionary
+            will be made before modification. Defaults to True.
+
+    Returns:
+        dict: The input dictionary with the fields propagated along the z-axis.
+    """
+    field_names = list(fields.keys())
+
+    if not override_fields:
+        fields = copy.deepcopy(fields)
+
+    for field_name in field_names:
+        kx = fields[field_name]["kx_space"]
+        ky = fields[field_name]["ky_space"]
+        omega = fields[field_name]["omega_space"] / const.c
+        kxm, kym, km = np.meshgrid(kx, ky, omega, indexing="ij")
+
+        return kxm, kym, km
+
+        if propagation_method == "angular_spectrum":
+            sqrt_content = 1 - (kxm / km) ** 2 - (kym / km) ** 2
+            mask = np.where(sqrt_content > 0, 1, 0)
+            phase = np.where(km == 0, 0, delta_z * km * np.emath.sqrt(sqrt_content))
+            propagator = mask * np.exp(1j * phase)
+        elif propagation_method == "fresnel":
+            # TODO check if correct
+            phase = np.exp(-1j * 2 * np.pi * km * delta_z)
+        else:
+            raise ValueError("Unknown propagation method")
+
+        fields[field_name]["data"] = fields[field_name]["data"] * propagator
+        fields[field_name]["delta_z"] = delta_z
+        fields[field_name]["propagation_method"] = propagation_method
+
+    return fields
+
+
+@typeguard.typechecked
 def restore_fields_kko(fields: dict, delta_t: float) -> dict:
     """
     Pad the truncated k-omega space fields to the original size for 3D FFTs.
