@@ -7,6 +7,7 @@ import typeguard
 from picongpuanalysis.utils.units import unit_k, unit_m, unit_omega, unit_t
 
 
+@typeguard.typechecked
 def apply_band_pass_filter(
     fields: dict, lower_cutoff: float, upper_cutoff: float, override_fields: bool = True
 ) -> dict:
@@ -32,6 +33,8 @@ def apply_band_pass_filter(
     if "Ex - positive" in fields.keys():
         assert lower_cutoff >= np.min(np.abs(fields["Ex - positive"]["omega_space"])), "lower_cutoff too small"
         assert upper_cutoff <= np.max(np.abs(fields["Ex - positive"]["omega_space"])), "upper_cutoff too large"
+    else:
+        assert upper_cutoff <= np.max(np.abs(fields[list(fields.keys())[0]]["omega_space"])), "upper_cutoff too large"
 
     if not override_fields:
         fields = copy.deepcopy(fields)
@@ -43,11 +46,46 @@ def apply_band_pass_filter(
         mask_lower = np.where(omega_space < lower_cutoff, 0, 1)
         mask = mask_upper * mask_lower
 
-        fields[field_name]["data"] *= mask
+        masked_fields = fields[field_name]["data"] * mask
+
+        # Truncate arrays that are previously truncated
+        if " - " in field_name:
+            if "positive" in field_name:
+                min_idx = np.searchsorted(
+                    fields[field_name]["omega_space"],
+                    lower_cutoff,
+                    sorter=np.argsort(fields[field_name]["omega_space"]),
+                )
+                max_idx = np.searchsorted(
+                    fields[field_name]["omega_space"],
+                    upper_cutoff,
+                    sorter=np.argsort(fields[field_name]["omega_space"]),
+                )
+            elif "negative" in field_name:
+                min_idx = np.searchsorted(
+                    fields[field_name]["omega_space"],
+                    -upper_cutoff,
+                    sorter=np.argsort(fields[field_name]["omega_space"]),
+                )
+                max_idx = np.searchsorted(
+                    fields[field_name]["omega_space"],
+                    -lower_cutoff,
+                    sorter=np.argsort(fields[field_name]["omega_space"]),
+                )
+            else:
+                raise ValueError("field_name must be positive or negative")
+
+            fields[field_name]["data"] = masked_fields[:, :, min_idx:max_idx]
+            fields[field_name]["omega_space"] = fields[field_name]["omega_space"][min_idx:max_idx]
+        else:
+            fields[field_name]["data"] = masked_fields
+
+        del masked_fields
 
     return fields
 
 
+@typeguard.typechecked
 def compute_shadowgram(fields: dict) -> dict:
     """
     Compute a shadowgram in z direction from the given electric and magnetic fields.
