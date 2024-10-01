@@ -1,9 +1,51 @@
+import copy
 import itertools
 import numpy as np
 import scipy.constants as const
 import typeguard
 
 from picongpuanalysis.utils.units import unit_k, unit_m, unit_omega, unit_t
+
+
+def apply_band_pass_filter(
+    fields: dict, lower_cutoff: float, upper_cutoff: float, override_fields: bool = True
+) -> dict:
+    """
+    Applies a band-pass filter to the fields in the k-omega or xy-omega space.
+
+    Parameters:
+    fields (dict): A dictionary with the fields as keys and a dictionary containing the
+        data and omega_space of the field as values.
+    lower_cutoff (float): The lower angular frequency cutoff of the band-pass filter in SI units.
+    upper_cutoff (float ): The upper angular frequency cutoff of the band-pass filter in SI units.
+    override_fields (bool, optional): If True, the fields are overwritten. If False, the fields are copied
+        before applying the band-pass filter. Default is True.
+
+    Returns:
+        dict: A dictionary with the filtered fields.
+    """
+    assert lower_cutoff < upper_cutoff, "lower_cutoff must be smaller than upper_cutoff"
+    assert lower_cutoff > 0, "lower_cutoff must be positive"
+    assert "omega_space" in fields[list(fields.keys())[0]].keys(), "omega_space not found in fields"
+
+    # Check if bandpass filter is equal or smaller than truncated k-omega space arrays
+    if "Ex - positive" in fields.keys():
+        assert lower_cutoff >= np.min(np.abs(fields["Ex - positive"]["omega_space"])), "lower_cutoff too small"
+        assert upper_cutoff <= np.max(np.abs(fields["Ex - positive"]["omega_space"])), "upper_cutoff too large"
+
+    if not override_fields:
+        fields = copy.deepcopy(fields)
+
+    for field_name in fields.keys():
+        # Set band-pass filter
+        omega_space = np.abs(fields[field_name]["omega_space"])
+        mask_upper = np.where(omega_space > upper_cutoff, 0, 1)
+        mask_lower = np.where(omega_space < lower_cutoff, 0, 1)
+        mask = mask_upper * mask_lower
+
+        fields[field_name]["data"] *= mask
+
+    return fields
 
 
 def compute_shadowgram(fields: dict) -> dict:
