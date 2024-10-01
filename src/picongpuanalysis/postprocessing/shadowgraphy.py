@@ -201,13 +201,13 @@ def fft_to_kko(fields: dict) -> dict:
         ret_dict[field_name]["kx_space"] = np.fft.fftshift(
             np.fft.fftfreq(
                 fields[field_name]["x_space"].shape[0],
-                np.abs(fields[field_name]["x_space"][1] - fields[field_name]["x_space"][0]),
+                np.abs(fields[field_name]["x_space"][1] - fields[field_name]["x_space"][0]) / (2 * np.pi),
             )
         )
         ret_dict[field_name]["ky_space"] = np.fft.fftshift(
             np.fft.fftfreq(
                 fields[field_name]["y_space"].shape[0],
-                np.abs(fields[field_name]["y_space"][1] - fields[field_name]["y_space"][0]),
+                np.abs(fields[field_name]["y_space"][1] - fields[field_name]["y_space"][0]) / (2 * np.pi),
             )
         )
 
@@ -253,20 +253,20 @@ def ifft_to_xyt(fields: dict) -> dict:
         ret_dict[field_name]["x_space"] = np.fft.fftshift(
             np.fft.fftfreq(
                 fields[field_name]["kx_space"].shape[0],
-                np.abs(fields[field_name]["kx_space"][1] - fields[field_name]["kx_space"][0]),
+                np.abs(fields[field_name]["kx_space"][1] - fields[field_name]["kx_space"][0]) / (2 * np.pi),
             )
         )
         ret_dict[field_name]["y_space"] = np.fft.fftshift(
             np.fft.fftfreq(
                 fields[field_name]["ky_space"].shape[0],
-                np.abs(fields[field_name]["ky_space"][1] - fields[field_name]["ky_space"][0]),
+                np.abs(fields[field_name]["ky_space"][1] - fields[field_name]["ky_space"][0]) / (2 * np.pi),
             )
         )
         # TODO figure out start time of plugin and use it here
         ret_dict[field_name]["t_space"] = np.fft.fftshift(
             np.fft.fftfreq(
                 fields[field_name]["omega_space"].shape[0],
-                np.abs(fields[field_name]["omega_space"][1] - fields[field_name]["omega_space"][0]) / 2 / np.pi,
+                np.abs(fields[field_name]["omega_space"][1] - fields[field_name]["omega_space"][0]) / (2 * np.pi),
             )
         )
 
@@ -303,12 +303,14 @@ def propagate_fields(
         omega = fields[field_name]["omega_space"] / const.c
         kxm, kym, km = np.meshgrid(kx, ky, omega, indexing="ij")
 
-        return kxm, kym, km
-
         if propagation_method == "angular_spectrum":
             sqrt_content = 1 - (kxm / km) ** 2 - (kym / km) ** 2
+            # Clipping to avoid negative square roots
+            sqrt_content = np.clip(sqrt_content, 0, None)
+            # Masking to remove evanescent fields
             mask = np.where(sqrt_content > 0, 1, 0)
-            phase = np.where(km == 0, 0, delta_z * km * np.emath.sqrt(sqrt_content))
+            # Angular spectrum waves
+            phase = np.where(km == 0, 0, delta_z * km * np.sqrt(sqrt_content))
             propagator = mask * np.exp(1j * phase)
         elif propagation_method == "fresnel":
             # TODO check if correct
