@@ -29,7 +29,7 @@ def apply_band_pass_filter(
     assert lower_cutoff > 0, "lower_cutoff must be positive"
     assert "omega_space" in fields[list(fields.keys())[0]].keys(), "omega_space not found in fields"
 
-    # Check if bandpass filter is equal or smaller than truncated k-omega space arrays
+    # Check if band-pass filter is equal or smaller than truncated k-omega space arrays
     if "Ex - positive" in fields.keys():
         assert lower_cutoff >= np.min(np.abs(fields["Ex - positive"]["omega_space"])), "lower_cutoff too small"
         assert upper_cutoff <= np.max(np.abs(fields["Ex - positive"]["omega_space"])), "upper_cutoff too large"
@@ -80,7 +80,51 @@ def apply_band_pass_filter(
         else:
             fields[field_name]["data"] = masked_fields
 
+        fields[field_name]["band-pass_mask"] = mask
+        fields[field_name]["upper_cutoff"] = upper_cutoff
+        fields[field_name]["lower_cutoff"] = lower_cutoff
+
         del masked_fields
+
+    return fields
+
+
+@typeguard.typechecked
+def apply_numerical_aperture(fields: dict, numerical_aperture: float, override_fields: bool = True) -> dict:
+    """
+    Applies a nuemrical aperture to the fields in the k-omega space.
+
+    Parameters:
+    fields (dict): A dictionary with the fields as keys and a dictionary containing the
+        data and omega_space of the field as values.
+    numerical_aperture (float):
+        The numerical aperture to apply
+    override_fields (bool, optional):
+        If True, the original fields will be overwritten. If False, a copy of the fields will be made and the numerical aperture will be applied on the copy.
+
+    Returns:
+        dict: The fields with the numerical aperture applied
+    """
+    assert numerical_aperture > 0, "numerical_aperture must be positive"
+    assert "omega_space" in fields[list(fields.keys())[0]].keys(), "omega_space not found in fields"
+    assert "kx_space" in fields[list(fields.keys())[0]].keys(), "kx_space not found in fields"
+    assert "ky_space" in fields[list(fields.keys())[0]].keys(), "ky_space not found in fields"
+
+    if not override_fields:
+        fields = copy.deepcopy(fields)
+
+    for field_name in fields.keys():
+        kx = fields[field_name]["kx_space"]
+        ky = fields[field_name]["ky_space"]
+        omega = fields[field_name]["omega_space"]
+
+        kxm, kym, omegam = np.meshgrid(kx, ky, omega, indexing="ij")
+
+        mask = np.where(kxm**2 + kym**2 > (numerical_aperture * omegam / const.c) ** 2, 0, 1)
+
+        fields[field_name]["data"] *= mask
+        fields[field_name]["numerical_aperture"] = numerical_aperture
+        fields[field_name]["numerical_aperture_mask"] = mask
 
     return fields
 
