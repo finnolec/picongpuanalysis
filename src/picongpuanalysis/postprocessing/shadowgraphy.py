@@ -27,7 +27,6 @@ def apply_band_pass_filter(
     """
     assert lower_cutoff < upper_cutoff, "lower_cutoff must be smaller than upper_cutoff"
     assert lower_cutoff > 0, "lower_cutoff must be positive"
-    assert "omega_space" in fields[list(fields.keys())[0]].keys(), "omega_space not found in fields"
 
     # Check if band-pass filter is equal or smaller than truncated k-omega space arrays
     if "Ex - positive" in fields.keys():
@@ -40,6 +39,8 @@ def apply_band_pass_filter(
         fields = copy.deepcopy(fields)
 
     for field_name in fields.keys():
+        assert fields[field_name]["axis_units"][2] == unit_omega, "Field units must be [arb., arb., unit_omega]"
+
         # Set band-pass filter
         omega_space = np.abs(fields[field_name]["omega_space"])
         mask_upper = np.where(omega_space > upper_cutoff, 0, 1)
@@ -106,14 +107,17 @@ def apply_numerical_aperture(fields: dict, numerical_aperture: float, override_f
         dict: The fields with the numerical aperture applied
     """
     assert numerical_aperture > 0, "numerical_aperture must be positive"
-    assert "omega_space" in fields[list(fields.keys())[0]].keys(), "omega_space not found in fields"
-    assert "kx_space" in fields[list(fields.keys())[0]].keys(), "kx_space not found in fields"
-    assert "ky_space" in fields[list(fields.keys())[0]].keys(), "ky_space not found in fields"
 
     if not override_fields:
         fields = copy.deepcopy(fields)
 
     for field_name in fields.keys():
+        assert fields[field_name]["axis_units"] == [
+            unit_k,
+            unit_k,
+            unit_omega,
+        ], "Field units must be [unit_k, unit_k, unit_omega]"
+
         kx = fields[field_name]["kx_space"]
         ky = fields[field_name]["ky_space"]
         omega = fields[field_name]["omega_space"]
@@ -298,6 +302,12 @@ def propagate_fields(
         fields = copy.deepcopy(fields)
 
     for field_name in field_names:
+        assert fields[field_name]["axis_units"] == [
+            unit_k,
+            unit_k,
+            unit_omega,
+        ], "Field units must be [unit_k, unit_k, unit_omega]"
+
         kx = fields[field_name]["kx_space"]
         ky = fields[field_name]["ky_space"]
         omega = fields[field_name]["omega_space"] / const.c
@@ -354,7 +364,7 @@ def restore_fields_kko(fields: dict, delta_t: float) -> dict:
             unit_k,
             unit_k,
             unit_omega,
-        ], "Field units must be [unit_m, unit_m, unit_omega]"
+        ], "Field units must be [unit_k, unit_k, unit_omega]"
 
         # Load truncated omega space
         truncated_omega_space_pos = fields[read_name_pos]["omega_space"]
