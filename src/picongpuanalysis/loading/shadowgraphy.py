@@ -7,6 +7,49 @@ from picongpuanalysis.utils.units import unit_m, unit_unitless, unit_omega
 
 
 @typeguard.typechecked
+def load_shadowgram(path: str, iteration: int) -> dict:
+    """
+    Load the shadowgram from the shadowgraphy plugin.
+
+    Parameters:
+        path (str): The path to the shadowgraphy plugin openPMD file.
+        iteration (int): The iteration at which the shadowgram is loaded.
+
+    Returns:
+        dict: A dictionary containing the shadowgram.
+    """
+    series = opmd.Series(path, opmd.Access.read_only)
+    i = series.iterations[iteration]
+
+    chunkdata = i.meshes["shadowgram"][opmd.Mesh_Record_Component.SCALAR].load_chunk()
+    unit_si = i.meshes["shadowgram"].get_attribute("unitSI")
+
+    x_space = i.meshes["Spatial positions"]["x"].load_chunk()
+    y_space = i.meshes["Spatial positions"]["y"].load_chunk()
+
+    dt = i.meshes["shadowgram"].get_attribute("dt")
+    duration = i.meshes["shadowgram"].get_attribute("duration")
+
+    series.flush()
+    series.close()
+
+    del i
+    del series
+
+    ret_dict = {}
+
+    ret_dict["data"] = chunkdata.transpose() * unit_si
+    ret_dict["axis_labels"] = ["x_position", "y_position"]
+    ret_dict["axis_units"] = [unit_m, unit_m]
+    ret_dict["x_space"] = x_space
+    ret_dict["y_space"] = y_space
+    ret_dict["dt"] = dt
+    ret_dict["duration"] = duration
+
+    return ret_dict
+
+
+@typeguard.typechecked
 def load_shadowgraphy_fourier(path: str, iteration: int, use_si_units: bool = True) -> dict:
     """
     Loads full shadowgraphy plugin fourier data from an openPMD file.
