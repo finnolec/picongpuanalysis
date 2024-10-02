@@ -41,8 +41,12 @@ def apply_band_pass_filter(
     for field_name in fields.keys():
         assert fields[field_name]["axis_units"][2] == unit_omega, "Field units must be [arb., arb., unit_omega]"
 
-        # Set band-pass filter
         omega_space = np.abs(fields[field_name]["omega_space"])
+        # Round cutoffs to nearest omega_space value
+        lower_cutoff = float(omega_space[_find_closest_idx(omega_space, lower_cutoff)])
+        upper_cutoff = float(omega_space[_find_closest_idx(omega_space, upper_cutoff)])
+
+        # Set band-pass filter
         mask_upper = np.where(omega_space > upper_cutoff, 0, 1)
         mask_lower = np.where(omega_space < lower_cutoff, 0, 1)
         mask = mask_upper * mask_lower
@@ -52,27 +56,11 @@ def apply_band_pass_filter(
         # Truncate arrays that are previously truncated
         if " - " in field_name:
             if "positive" in field_name:
-                min_idx = np.searchsorted(
-                    fields[field_name]["omega_space"],
-                    lower_cutoff,
-                    sorter=np.argsort(fields[field_name]["omega_space"]),
-                )
-                max_idx = np.searchsorted(
-                    fields[field_name]["omega_space"],
-                    upper_cutoff,
-                    sorter=np.argsort(fields[field_name]["omega_space"]),
-                )
+                min_idx = _find_closest_idx(fields[field_name]["omega_space"], lower_cutoff)
+                max_idx = _find_closest_idx(fields[field_name]["omega_space"], upper_cutoff)
             elif "negative" in field_name:
-                min_idx = np.searchsorted(
-                    fields[field_name]["omega_space"],
-                    -upper_cutoff,
-                    sorter=np.argsort(fields[field_name]["omega_space"]),
-                )
-                max_idx = np.searchsorted(
-                    fields[field_name]["omega_space"],
-                    -lower_cutoff,
-                    sorter=np.argsort(fields[field_name]["omega_space"]),
-                )
+                min_idx = _find_closest_idx(fields[field_name]["omega_space"], -upper_cutoff) + 1
+                max_idx = _find_closest_idx(fields[field_name]["omega_space"], -lower_cutoff) + 1
             else:
                 raise ValueError("field_name must be positive or negative")
 
@@ -311,6 +299,7 @@ def propagate_fields(
         kx = fields[field_name]["kx_space"]
         ky = fields[field_name]["ky_space"]
         omega = fields[field_name]["omega_space"] / const.c
+
         kxm, kym, km = np.meshgrid(kx, ky, omega, indexing="ij")
 
         if propagation_method == "angular_spectrum":
@@ -372,13 +361,16 @@ def restore_fields_kko(fields: dict, delta_t: float) -> dict:
 
         # Calculate final size of array
         n_t = int(round(2 * np.pi / (delta_t * delta_omega)))
+
         padded_omega_space = 2 * np.pi * (np.arange(n_t) - n_t / 2) / n_t / delta_t
 
         padded_array = np.zeros(fields[read_name_pos]["data"].shape[:-1] + (n_t,), dtype=np.complex128)
 
         # Insert truncated data into padded array
-        start_idx = np.searchsorted(padded_omega_space, truncated_omega_space_pos[0])
-        end_idx = np.searchsorted(padded_omega_space, truncated_omega_space_pos[-1])
+
+        start_idx = _find_closest_idx(padded_omega_space, truncated_omega_space_pos[0])
+        end_idx = _find_closest_idx(padded_omega_space, truncated_omega_space_pos[-1]) + 1
+
         padded_array[:, :, start_idx:end_idx] = fields[read_name_pos]["data"]
 
         # Load negative field
@@ -386,8 +378,9 @@ def restore_fields_kko(fields: dict, delta_t: float) -> dict:
         truncated_omega_space_neg = fields[read_name_neg]["omega_space"]
 
         # Insert truncated data into padded array
-        start_idx = np.searchsorted(padded_omega_space, truncated_omega_space_neg[0])
-        end_idx = np.searchsorted(padded_omega_space, truncated_omega_space_neg[-1])
+        start_idx = _find_closest_idx(padded_omega_space, truncated_omega_space_neg[0])
+        end_idx = _find_closest_idx(padded_omega_space, truncated_omega_space_neg[-1]) + 1
+
         padded_array[:, :, start_idx:end_idx] = fields[read_name_neg]["data"]
 
         ret_dict.setdefault(write_name, {"data": padded_array})
@@ -399,3 +392,17 @@ def restore_fields_kko(fields: dict, delta_t: float) -> dict:
         ret_dict[write_name]["omega_space"] = padded_omega_space
 
     return ret_dict
+
+
+def _find_closest_idx(arr, target_value):
+    """
+    Find the index of the value in arr that is closest to target_value.
+
+    Parameters:
+        arr (numpy.ndarray): The array to search.
+        target_value (float): The value to search for.
+
+    Returns:
+        int: The index of the closest value.
+    """
+    return np.argmin(np.abs(arr - target_value))
