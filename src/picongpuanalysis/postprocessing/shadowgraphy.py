@@ -28,13 +28,6 @@ def apply_band_pass_filter(
     assert lower_cutoff < upper_cutoff, "lower_cutoff must be smaller than upper_cutoff"
     assert lower_cutoff > 0, "lower_cutoff must be positive"
 
-    # Check if band-pass filter is equal or smaller than truncated k-omega space arrays
-    if "Ex - positive" in fields.keys():
-        assert lower_cutoff >= np.min(np.abs(fields["Ex - positive"]["omega_space"])), "lower_cutoff too small"
-        assert upper_cutoff <= np.max(np.abs(fields["Ex - positive"]["omega_space"])), "upper_cutoff too large"
-    else:
-        assert upper_cutoff <= np.max(np.abs(fields[list(fields.keys())[0]]["omega_space"])), "upper_cutoff too large"
-
     if not override_fields:
         fields = copy.deepcopy(fields)
 
