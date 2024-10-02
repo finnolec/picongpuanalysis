@@ -33,3 +33,7 @@ Install picongpuanalysis with poetry
 ```bash
 poetry install --all-extras
 ```
+
+## Examples
+
+You can find examples on how to use different modules of this library in [this directory](examples/).
