@@ -1,6 +1,8 @@
 import copy
 import itertools
 import numpy as np
+import os
+import pickle
 import scipy.constants as const
 import typeguard
 
@@ -150,6 +152,25 @@ def compute_shadowgram(fields: dict) -> dict:
     ret_dict["x_space"] = fields["Ex"]["x_space"]
     ret_dict["y_space"] = fields["Ex"]["y_space"]
 
+    if "numerical_aperture" in fields["Ex"].keys():
+        ret_dict["numerical_aperture"] = fields["Ex"]["numerical_aperture"]
+    else:
+        ret_dict["numerical_aperture"] = None
+
+    if "upper_cutoff" in fields["Ex"].keys():
+        ret_dict["upper_cutoff"] = fields["Ex"]["upper_cutoff"]
+        ret_dict["lower_cutoff"] = fields["Ex"]["lower_cutoff"]
+    else:
+        ret_dict["upper_cutoff"] = None
+        ret_dict["lower_cutoff"] = None
+
+    if "propagation_method" in fields["Ex"].keys():
+        ret_dict["delta_z"] = fields["Ex"]["delta_z"]
+        ret_dict["propagation_method"] = fields["Ex"]["propagation_method"]
+    else:
+        ret_dict["delta_z"] = None
+        ret_dict["propagation_method"] = None
+
     return ret_dict
 
 
@@ -254,6 +275,17 @@ def ifft_to_xyt(fields: dict) -> dict:
                 np.abs(fields[field_name]["omega_space"][1] - fields[field_name]["omega_space"][0]) / (2 * np.pi),
             )
         )
+
+        if "numerical_aperture" in fields[field_name].keys():
+            ret_dict[field_name]["numerical_aperture"] = fields[field_name]["numerical_aperture"]
+
+        if "upper_cutoff" in fields[field_name].keys():
+            ret_dict[field_name]["upper_cutoff"] = fields[field_name]["upper_cutoff"]
+            ret_dict[field_name]["lower_cutoff"] = fields[field_name]["lower_cutoff"]
+
+        if "propagation_method" in fields[field_name].keys():
+            ret_dict[field_name]["propagation_method"] = fields[field_name]["propagation_method"]
+            ret_dict[field_name]["delta_z"] = fields[field_name]["delta_z"]
 
     return ret_dict
 
@@ -384,7 +416,58 @@ def restore_fields_kko(fields: dict, delta_t: float) -> dict:
         ret_dict[write_name]["ky_space"] = fields[read_name_pos]["ky_space"]
         ret_dict[write_name]["omega_space"] = padded_omega_space
 
+        if "propagation_method" in fields[read_name_pos].keys():
+            ret_dict[write_name]["propagation_method"] = fields[read_name_pos]["propagation_method"]
+            ret_dict[write_name]["delta_z"] = fields[read_name_pos]["delta_z"]
+
+        if "numerical_aperture" in fields[read_name_pos].keys():
+            ret_dict[write_name]["numerical_aperture"] = fields[read_name_pos]["numerical_aperture"]
+
+        if "upper_cutoff" in fields[read_name_pos].keys():
+            ret_dict[write_name]["lower_cutoff"] = fields[read_name_pos]["lower_cutoff"]
+            ret_dict[write_name]["upper_cutoff"] = fields[read_name_pos]["upper_cutoff"]
+
     return ret_dict
+
+
+def save_shadowgram(shadowgram: dict, filename: str) -> None:
+    """
+    Saves a shadowgram dictionary to a file.
+
+    Parameters:
+        shadowgram (dict): Shadowgram dictionary containing the data, axis labels, and axis units.
+        filename (str): Filename to save the shadowgram to.
+
+    Notes:
+        The file is saved in binary format using pickle.
+    """
+    assert not os.path.exists(filename), f"File {filename} already exists."
+
+    with open(filename, "wb") as f:
+        pickle.dump(shadowgram, f)
+
+    print(f"Saved shadowgram to {filename}.")
+
+
+def load_shadowgram(filename: str) -> dict:
+    """
+    Loads a shadowgram from a file.
+
+    Parameters:
+        filename (str): Filename to load the shadowgram from.
+
+    Returns:
+        dict: Shadowgram dictionary containing the data, axis labels, and axis units.
+
+    Notes:
+        The file is loaded in binary format using pickle.
+    """
+    assert os.path.exists(filename), f"File {filename} does not exist."
+
+    with open(filename, "rb") as f:
+        shadowgram = pickle.load(f)
+
+    return shadowgram
 
 
 def _find_closest_idx(arr, target_value):

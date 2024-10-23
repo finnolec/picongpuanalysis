@@ -6,6 +6,8 @@ from .shadowgraphy import (
     ifft_to_xyt,
     propagate_fields,
     restore_fields_kko,
+    save_shadowgram,
+    load_shadowgram,
 )
 
 
@@ -17,4 +19,6 @@ __all__ = [
     "ifft_to_xyt",
     "propagate_fields",
     "restore_fields_kko",
+    "save_shadowgram",
+    "load_shadowgram",
 ]
