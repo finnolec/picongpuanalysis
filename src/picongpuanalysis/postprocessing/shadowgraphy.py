@@ -430,6 +430,99 @@ def restore_fields_kko(fields: dict, delta_t: float) -> dict:
     return ret_dict
 
 
+def save_fields_xyt(fields: dict, filename: str) -> None:
+    """
+    Saves the fields dictionary to a file in binary format.
+
+    Parameters:
+        fields (dict): A dictionary containing the field data to be saved.
+        filename (str): The name of the file to save the fields to. The file must not already exist.
+
+    Raises:
+        AssertionError: If the file already exists.
+
+    Notes:
+        The fields are saved using the pickle module.
+    """
+
+    assert not os.path.exists(filename), f"File {filename} already exists."
+
+    with open(filename, "wb") as f:
+        pickle.dump(fields, f)
+
+    print(f"Saved fields to {filename}.")
+
+
+def load_fields_xyt(filename: str) -> dict:
+    """
+    Loads field data from a file in binary format.
+
+    Parameters:
+        filename (str): The name of the file to load the fields from.
+
+    Returns:
+        dict: A dictionary containing the loaded field data.
+
+    Raises:
+        AssertionError: If the file does not exist.
+
+    Notes:
+        The fields are loaded using the pickle module.
+    """
+    assert os.path.exists(filename), f"File {filename} does not exist."
+
+    with open(filename, "rb") as f:
+        fields = pickle.load(f)
+
+    return fields
+
+
+def save_fields_kko(fields: dict, filename: str) -> None:
+    """
+    Saves the k-omega space fields dictionary to a file in binary format.
+
+    Parameters:
+        fields (dict): A dictionary containing the field data to be saved.
+        filename (str): The name of the file to save the fields to. The file must not already exist.
+
+    Raises:
+        AssertionError: If the file already exists.
+
+    Notes:
+        The fields are saved using the pickle module.
+    """
+    assert not os.path.exists(filename), f"File {filename} already exists."
+
+    with open(filename, "wb") as f:
+        pickle.dump(fields, f)
+
+    print(f"Saved fields to {filename}.")
+
+
+def load_fields_kko(filename: str) -> dict:
+    """
+    Loads field data from a file in binary format.
+
+    Parameters:
+        filename (str): The name of the file to load the fields from.
+
+    Returns:
+        dict: A dictionary containing the loaded field data.
+
+    Raises:
+        AssertionError: If the file does not exist.
+
+    Notes:
+        The fields are loaded using the pickle module.
+    """
+    assert os.path.exists(filename), f"File {filename} does not exist."
+
+    with open(filename, "rb") as f:
+        fields = pickle.load(f)
+
+    return fields
+
+
 def save_shadowgram(shadowgram: dict, filename: str) -> None:
     """
     Saves a shadowgram dictionary to a file.
