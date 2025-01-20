@@ -223,6 +223,50 @@ def fft_to_kko(fields: dict) -> dict:
 
 
 @typeguard.typechecked
+def fft_to_xyo(fields: dict) -> dict:
+    """
+    Fourier transform fields in x-time space to fields in x-omega space.
+
+    Parameters:
+        fields (dict): A dictionary with field names as keys and dictionaries containing the field data,
+            axis labels, and axis units as values.
+
+    Returns:
+        dict: A dictionary with the same keys as the input, but with the field data and axis units
+            transformed to x-omega space.
+    """
+    field_names = list(fields.keys())
+
+    ret_dict = {}
+
+    for field_name in field_names:
+        assert fields[field_name]["axis_units"] == [
+            unit_m,
+            unit_m,
+            unit_t,
+        ], "Field units must be [unit_m, unit_m, unit_t]"
+
+        data_xyo = np.fft.fftshift(np.fft.fft(fields[field_name]["data"], axis=2), axes=2)
+
+        ret_dict.setdefault(field_name, {"data": data_xyo})
+
+        ret_dict[field_name]["axis_labels"] = ["x_position", "y_position", "omega_frequency"]
+        ret_dict[field_name]["axis_units"] = [unit_m, unit_m, unit_omega]
+
+        ret_dict[field_name]["x_space"] = fields[field_name]["x_space"]
+        ret_dict[field_name]["y_space"] = fields[field_name]["y_space"]
+
+        ret_dict[field_name]["omega_space"] = np.fft.fftshift(
+            np.fft.fftfreq(
+                fields[field_name]["t_space"].shape[0],
+                np.abs(fields[field_name]["t_space"][1] - fields[field_name]["t_space"][0]) / (2 * np.pi),
+            )
+        )
+
+    return ret_dict
+
+
+@typeguard.typechecked
 def ifft_to_xyt(fields: dict) -> dict:
     """
     Transforms fields from k-omega space to x-y-t space.
