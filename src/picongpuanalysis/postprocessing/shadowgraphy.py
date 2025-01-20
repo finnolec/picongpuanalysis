@@ -436,7 +436,6 @@ def restore_fields_kko(fields: dict, delta_t: float) -> dict:
         padded_array = np.zeros(fields[read_name_pos]["data"].shape[:-1] + (n_t,), dtype=np.complex128)
 
         # Insert truncated data into padded array
-
         start_idx = _find_closest_idx(padded_omega_space, truncated_omega_space_pos[0])
         end_idx = _find_closest_idx(padded_omega_space, truncated_omega_space_pos[-1]) + 1
 
@@ -470,6 +469,69 @@ def restore_fields_kko(fields: dict, delta_t: float) -> dict:
         if "upper_cutoff" in fields[read_name_pos].keys():
             ret_dict[write_name]["lower_cutoff"] = fields[read_name_pos]["lower_cutoff"]
             ret_dict[write_name]["upper_cutoff"] = fields[read_name_pos]["upper_cutoff"]
+
+    return ret_dict
+
+
+@typeguard.typechecked
+def split_fields_xyo(fields: dict) -> dict:
+    """
+    Split the fields into positive and negative omega components from a full position-omega space.
+
+    Parameters:
+        fields (dict): A dictionary with field names as keys and dictionaries containing the field data,
+            axis labels, and axis units as values.
+
+    Returns:
+        dict: A dictionary with separate positive and negative components for each field in the input.
+    """
+    field_names = ["E", "B"]
+    field_components = ["x", "y"]
+
+    ret_dict = {}
+
+    for field_name, field_component in itertools.product(field_names, field_components):
+        read_name = f"{field_name}{field_component}"
+        assert fields[read_name]["axis_units"] == [
+            unit_m,
+            unit_m,
+            unit_omega,
+        ], "Field units must be [unit_m, unit_m, unit_omega]"
+
+        full_omega_space = fields[read_name]["omega_space"]
+        data = fields[read_name]["data"]
+
+        # Find the zero index in the omega space
+        zero_idx = _find_closest_idx(full_omega_space, 0.0)
+
+        # Split the omega space and data into positive and negative parts
+        positive_omega_space = full_omega_space[zero_idx:]
+        negative_omega_space = full_omega_space[:zero_idx]
+
+        positive_data = data[:, :, zero_idx:]
+        negative_data = data[:, :, :zero_idx]
+
+        # Create entries for positive and negative components
+        write_name_pos = f"{read_name} - positive"
+        write_name_neg = f"{read_name} - negative"
+
+        ret_dict[write_name_pos] = {
+            "data": positive_data,
+            "axis_labels": fields[read_name]["axis_labels"],
+            "axis_units": fields[read_name]["axis_units"],
+            "x_space": fields[read_name]["x_space"],
+            "y_space": fields[read_name]["y_space"],
+            "omega_space": positive_omega_space,
+        }
+
+        ret_dict[write_name_neg] = {
+            "data": negative_data,
+            "axis_labels": fields[read_name]["axis_labels"],
+            "axis_units": fields[read_name]["axis_units"],
+            "x_space": fields[read_name]["x_space"],
+            "y_space": fields[read_name]["y_space"],
+            "omega_space": negative_omega_space,
+        }
 
     return ret_dict
 
