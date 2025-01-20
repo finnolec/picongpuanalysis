@@ -246,7 +246,7 @@ def fft_to_xyo(fields: dict) -> dict:
             unit_t,
         ], "Field units must be [unit_m, unit_m, unit_t]"
 
-        data_xyo = np.fft.fftshift(np.fft.fft(fields[field_name]["data"], axis=2), axes=2)
+        data_xyo = np.fft.fft(fields[field_name]["data"], axis=2)
 
         ret_dict.setdefault(field_name, {"data": data_xyo})
 
