@@ -175,7 +175,7 @@ def compute_shadowgram(fields: dict) -> dict:
 
 
 @typeguard.typechecked
-def fft_to_kko(fields: dict) -> dict:
+def fft_xyo_to_kko(fields: dict) -> dict:
     """
     Fourier transform fields in k-position space to fields in k-omega space.
 
@@ -223,7 +223,7 @@ def fft_to_kko(fields: dict) -> dict:
 
 
 @typeguard.typechecked
-def fft_to_xyo(fields: dict) -> dict:
+def fft_xyt_to_xyo(fields: dict) -> dict:
     """
     Fourier transform fields in x-time space to fields in x-omega space.
 
@@ -267,7 +267,7 @@ def fft_to_xyo(fields: dict) -> dict:
 
 
 @typeguard.typechecked
-def ifft_to_xyt(fields: dict) -> dict:
+def ifft_kko_to_xyt(fields: dict) -> dict:
     """
     Transforms fields from k-omega space to x-y-t space.
 
