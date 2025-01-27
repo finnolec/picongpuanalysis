@@ -11,7 +11,7 @@ from picongpuanalysis.utils.units import unit_k, unit_m, unit_omega, unit_t
 
 @typeguard.typechecked
 def apply_band_pass_filter(
-    fields: dict, lower_cutoff: float, upper_cutoff: float, override_fields: bool = True
+    fields: dict, lower_cutoff: float, upper_cutoff: float, overwrite_fields: bool = True
 ) -> dict:
     """
     Applies a band-pass filter to the fields in the k-omega or xy-omega space.
@@ -21,7 +21,7 @@ def apply_band_pass_filter(
         data and omega_space of the field as values.
     lower_cutoff (float): The lower angular frequency cutoff of the band-pass filter in SI units.
     upper_cutoff (float ): The upper angular frequency cutoff of the band-pass filter in SI units.
-    override_fields (bool, optional): If True, the fields are overwritten. If False, the fields are copied
+    overwrite_fields (bool, optional): If True, the fields are overwritten. If False, the fields are copied
         before applying the band-pass filter. Default is True.
 
     Returns:
@@ -30,7 +30,7 @@ def apply_band_pass_filter(
     assert lower_cutoff < upper_cutoff, "lower_cutoff must be smaller than upper_cutoff"
     assert lower_cutoff > 0, "lower_cutoff must be positive"
 
-    if not override_fields:
+    if not overwrite_fields:
         fields = copy.deepcopy(fields)
 
     for field_name in fields.keys():
@@ -74,7 +74,7 @@ def apply_band_pass_filter(
 
 
 @typeguard.typechecked
-def apply_numerical_aperture(fields: dict, numerical_aperture: float, override_fields: bool = True) -> dict:
+def apply_numerical_aperture(fields: dict, numerical_aperture: float, overwrite_fields: bool = True) -> dict:
     """
     Applies a nuemrical aperture to the fields in the k-omega space.
 
@@ -83,7 +83,7 @@ def apply_numerical_aperture(fields: dict, numerical_aperture: float, override_f
         data and omega_space of the field as values.
     numerical_aperture (float):
         The numerical aperture to apply
-    override_fields (bool, optional):
+    overwrite_fields (bool, optional):
         If True, the original fields will be overwritten. If False, a copy of the fields will be made and the numerical aperture will be applied on the copy.
 
     Returns:
@@ -91,7 +91,7 @@ def apply_numerical_aperture(fields: dict, numerical_aperture: float, override_f
     """
     assert numerical_aperture > 0, "numerical_aperture must be positive"
 
-    if not override_fields:
+    if not overwrite_fields:
         fields = copy.deepcopy(fields)
 
     for field_name in fields.keys():
@@ -336,7 +336,7 @@ def ifft_kko_to_xyt(fields: dict) -> dict:
 
 @typeguard.typechecked
 def propagate_fields(
-    fields: dict, delta_z: float, propagation_method: str = "angular_spectrum", override_fields: bool = True
+    fields: dict, delta_z: float, propagation_method: str = "angular_spectrum", overwrite_fields: bool = True
 ) -> dict:
     """
     Propagates fields in k-omega space along the z-axis by a distance of delta_z.
@@ -347,7 +347,7 @@ def propagate_fields(
         delta_z (float): The distance to propagate the fields along the z-axis. Units are meters.
         propagation_method (str): The method to use for propagation. Can be either "angular_spectrum" or "fresnel".
             Defaults to "angular_spectrum".
-        override_fields (bool): If True, the input dictionary will be modified. If False, a deep copy of the dictionary
+        overwrite_fields (bool): If True, the input dictionary will be modified. If False, a deep copy of the dictionary
             will be made before modification. Defaults to True.
 
     Returns:
@@ -355,7 +355,7 @@ def propagate_fields(
     """
     field_names = list(fields.keys())
 
-    if not override_fields:
+    if not overwrite_fields:
         fields = copy.deepcopy(fields)
 
     for field_name in field_names:
@@ -536,13 +536,15 @@ def split_fields_xyo(fields: dict) -> dict:
     return ret_dict
 
 
-def save_fields_xyt(fields: dict, filename: str) -> None:
+def save_fields_xyt(fields: dict, filename: str, overwrite: bool = False) -> None:
     """
     Saves the fields dictionary to a file in binary format.
 
     Parameters:
         fields (dict): A dictionary containing the field data to be saved.
         filename (str): The name of the file to save the fields to. The file must not already exist.
+        overwrite (bool, optional): Whether to overwrite the file if it already exists. Defaults to False.
+
 
     Raises:
         AssertionError: If the file already exists.
@@ -550,8 +552,11 @@ def save_fields_xyt(fields: dict, filename: str) -> None:
     Notes:
         The fields are saved using the pickle module.
     """
-
-    assert not os.path.exists(filename), f"File {filename} already exists."
+    if not overwrite:
+        assert not os.path.exists(filename), f"File {filename} already exists."
+    else:
+        if os.path.exists(filename):
+            print(f"Overwriting {filename}.")
 
     with open(filename, "wb") as f:
         pickle.dump(fields, f)
@@ -583,13 +588,14 @@ def load_fields_xyt(filename: str) -> dict:
     return fields
 
 
-def save_fields_kko(fields: dict, filename: str) -> None:
+def save_fields_kko(fields: dict, filename: str, overwrite: bool = False) -> None:
     """
     Saves the k-omega space fields dictionary to a file in binary format.
 
     Parameters:
         fields (dict): A dictionary containing the field data to be saved.
         filename (str): The name of the file to save the fields to. The file must not already exist.
+        overwrite (bool, optional): Whether to overwrite the file if it already exists. Defaults to False.
 
     Raises:
         AssertionError: If the file already exists.
@@ -597,7 +603,11 @@ def save_fields_kko(fields: dict, filename: str) -> None:
     Notes:
         The fields are saved using the pickle module.
     """
-    assert not os.path.exists(filename), f"File {filename} already exists."
+    if not overwrite:
+        assert not os.path.exists(filename), f"File {filename} already exists."
+    else:
+        if os.path.exists(filename):
+            print(f"Overwriting {filename}.")
 
     with open(filename, "wb") as f:
         pickle.dump(fields, f)
@@ -629,18 +639,23 @@ def load_fields_kko(filename: str) -> dict:
     return fields
 
 
-def save_shadowgram(shadowgram: dict, filename: str) -> None:
+def save_shadowgram(shadowgram: dict, filename: str, overwrite: bool = False) -> None:
     """
     Saves a shadowgram dictionary to a file.
 
     Parameters:
         shadowgram (dict): Shadowgram dictionary containing the data, axis labels, and axis units.
         filename (str): Filename to save the shadowgram to.
+        overwrite (bool, optional): Whether to overwrite the file if it already exists. Defaults to False.
 
     Notes:
         The file is saved in binary format using pickle.
     """
-    assert not os.path.exists(filename), f"File {filename} already exists."
+    if not overwrite:
+        assert not os.path.exists(filename), f"File {filename} already exists."
+    else:
+        if os.path.exists(filename):
+            print(f"Overwriting {filename}.")
 
     with open(filename, "wb") as f:
         pickle.dump(shadowgram, f)
