@@ -76,7 +76,7 @@ def apply_band_pass_filter(
 @typeguard.typechecked
 def apply_numerical_aperture(fields: dict, numerical_aperture: float, overwrite_fields: bool = True) -> dict:
     """
-    Applies a nuemrical aperture to the fields in the k-omega space.
+    Applies a numerical aperture to the fields in the k-omega space.
 
     Parameters:
     fields (dict): A dictionary with the fields as keys and a dictionary containing the
@@ -112,6 +112,23 @@ def apply_numerical_aperture(fields: dict, numerical_aperture: float, overwrite_
         fields[field_name]["data"] *= mask
         fields[field_name]["numerical_aperture"] = numerical_aperture
         fields[field_name]["numerical_aperture_mask"] = mask
+
+    return fields
+
+
+@typeguard.typechecked
+def apply_custom_mask(fields: dict, mask: np.ndarray, overwrite_fields: bool = True) -> dict:
+    if not overwrite_fields:
+        fields = copy.deepcopy(fields)
+
+    for field_name in fields.keys():
+        assert fields[field_name]["axis_units"] == [
+            unit_k,
+            unit_k,
+            unit_omega,
+        ], "Field units must be [unit_k, unit_k, unit_omega]"
+
+        fields[field_name]["data"] *= mask
 
     return fields
 
@@ -246,7 +263,7 @@ def fft_xyt_to_xyo(fields: dict) -> dict:
             unit_t,
         ], "Field units must be [unit_m, unit_m, unit_t]"
 
-        data_xyo = np.fft.fft(fields[field_name]["data"], axis=2, norm="forward")
+        data_xyo = np.fft.fft(fields[field_name]["data"], axis=2, norm="backward")
 
         ret_dict.setdefault(field_name, {"data": data_xyo})
 
