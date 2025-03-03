@@ -491,6 +491,69 @@ def restore_fields_kko(fields: dict, delta_t: float) -> dict:
 
 
 @typeguard.typechecked
+def split_fields_kko(fields: dict) -> dict:
+    """
+    Split the fields into positive and negative omega components from a full k-omega space.
+
+    Parameters:
+        fields (dict): A dictionary with field names as keys and dictionaries containing the field data,
+            axis labels, and axis units as values.
+
+    Returns:
+        dict: A dictionary with separate positive and negative components for each field in the input.
+    """
+    field_names = ["E", "B"]
+    field_components = ["x", "y"]
+
+    ret_dict = {}
+
+    for field_name, field_component in itertools.product(field_names, field_components):
+        read_name = f"{field_name}{field_component}"
+        assert fields[read_name]["axis_units"] == [
+            unit_k,
+            unit_k,
+            unit_omega,
+        ], "Field units must be [unit_m, unit_m, unit_omega]"
+
+        full_omega_space = fields[read_name]["omega_space"]
+        data = fields[read_name]["data"]
+
+        # Find the zero index in the omega space
+        zero_idx = _find_closest_idx(full_omega_space, 0.0)
+
+        # Split the omega space and data into positive and negative parts
+        positive_omega_space = full_omega_space[zero_idx:]
+        negative_omega_space = full_omega_space[:zero_idx]
+
+        positive_data = data[:, :, zero_idx:]
+        negative_data = data[:, :, :zero_idx]
+
+        # Create entries for positive and negative components
+        write_name_pos = f"{read_name} - positive"
+        write_name_neg = f"{read_name} - negative"
+
+        ret_dict[write_name_pos] = {
+            "data": positive_data,
+            "axis_labels": fields[read_name]["axis_labels"],
+            "axis_units": fields[read_name]["axis_units"],
+            "kx_space": fields[read_name]["kx_space"],
+            "ky_space": fields[read_name]["ky_space"],
+            "omega_space": positive_omega_space,
+        }
+
+        ret_dict[write_name_neg] = {
+            "data": negative_data,
+            "axis_labels": fields[read_name]["axis_labels"],
+            "axis_units": fields[read_name]["axis_units"],
+            "kx_space": fields[read_name]["kx_space"],
+            "ky_space": fields[read_name]["ky_space"],
+            "omega_space": negative_omega_space,
+        }
+
+    return ret_dict
+
+
+@typeguard.typechecked
 def split_fields_xyo(fields: dict) -> dict:
     """
     Split the fields into positive and negative omega components from a full position-omega space.
