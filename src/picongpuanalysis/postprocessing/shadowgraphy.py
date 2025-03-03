@@ -129,9 +129,9 @@ def apply_custom_mask(fields: dict, mask: np.ndarray, overwrite_fields: bool = T
         ], "Field units must be [unit_k, unit_k, unit_omega]"
 
         if field_name.endswith("positive"):
-            fields[field_name]["data"] *= mask[: mask.shape[0] // 2, :, :]
+            fields[field_name]["data"] *= mask[:, :, : mask.shape[2] // 2]
         elif field_name.endswith("negative"):
-            fields[field_name]["data"] *= mask[mask.shape[0] // 2 :, :, :]
+            fields[field_name]["data"] *= mask[:, :, mask.shape[2] // 2 :]
         # else:
         #    fields[field_name]["data"] *= mask
         # fields[field_name]["data"] *= mask
