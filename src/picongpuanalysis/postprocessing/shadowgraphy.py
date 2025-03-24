@@ -417,7 +417,7 @@ def propagate_fields(
 
 
 @typeguard.typechecked
-def restore_fields_kko(fields: dict, delta_t: float) -> dict:
+def restore_fields_kko(fields: dict, delta_t: float, field_components=["x", "y"], field_names=["E", "B"]) -> dict:
     """
     Pad the truncated k-omega space fields to the original size for 3D FFTs.
 
@@ -434,8 +434,8 @@ def restore_fields_kko(fields: dict, delta_t: float) -> dict:
 
     ret_dict = {}
 
-    field_components = ["x", "y"]
-    field_names = ["E", "B"]
+    # field_components = ["x", "y"]
+    # field_names = ["E", "B"]
 
     for field_name, field_component in itertools.product(field_names, field_components):
         # Load positive field
