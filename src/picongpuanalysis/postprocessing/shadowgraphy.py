@@ -118,7 +118,7 @@ def apply_numerical_aperture(
 
         kxm, kym, omegam = np.meshgrid(kx, ky, omega, indexing="ij")
         k_trans = np.sqrt(kxm**2 + kym**2)
-        k_aperture = numerical_aperture * omegam / const.c
+        k_aperture = np.abs(numerical_aperture * omegam / const.c)
 
         if smooth_mask and smooth_width > 0:
             # Hard mask region
