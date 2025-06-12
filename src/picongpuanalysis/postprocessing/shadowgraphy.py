@@ -461,14 +461,9 @@ def restore_fields_kko(fields: dict, delta_t: float, field_components=["x", "y"]
         dict: A dictionary with the same keys as the input, but with the field data and axis units
             transformed to k-omega space and padded to original size.
     """
-    # field_names = list(fields.keys())
-
     ret_dict = {}
 
-    # field_components = ["x", "y"]
-    # field_names = ["E", "B"]
-
-    for field_name, field_component in itertools.product(list(fields.keys()), field_components):
+    for field_name, field_component in itertools.product(field_names, field_components):
         # Load positive field
         write_name = f"{field_name}{field_component}"
         read_name_pos = f"{field_name}{field_component} - positive"
