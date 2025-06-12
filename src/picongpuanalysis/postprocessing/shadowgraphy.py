@@ -74,22 +74,33 @@ def apply_band_pass_filter(
 
 
 @typeguard.typechecked
-def apply_numerical_aperture(fields: dict, numerical_aperture: float, overwrite_fields: bool = True) -> dict:
+def apply_numerical_aperture(
+    fields: dict,
+    numerical_aperture: float,
+    overwrite_fields: bool = True,
+    smooth_mask: bool = False,
+    smooth_width: float = 0.0,
+) -> dict:
     """
-    Applies a numerical aperture to the fields in the k-omega space.
+    Applies a numerical aperture to the fields in the k-omega space, with optional smooth (sinusoidal) edge.
 
     Parameters:
-    fields (dict): A dictionary with the fields as keys and a dictionary containing the
-        data and omega_space of the field as values.
-    numerical_aperture (float):
-        The numerical aperture to apply
-    overwrite_fields (bool, optional):
-        If True, the original fields will be overwritten. If False, a copy of the fields will be made and the numerical aperture will be applied on the copy.
+        fields (dict): A dictionary with the fields as keys and a dictionary containing the
+            data and omega_space of the field as values.
+        numerical_aperture (float): The numerical aperture to apply.
+        overwrite_fields (bool, optional): If True, the original fields will be overwritten.
+            If False, a copy of the fields will be made and the numerical aperture will be applied on the copy.
+        smooth_mask (bool, optional): If True, applies a smooth (sinusoidal) transition at the aperture edge.
+            Default is False (hard mask).
+        smooth_width (float, optional): Width (in k units) of the sinusoidal transition region at the edge.
+            Only used if smooth_mask is True. Default is 0.0 (no smoothing).
 
     Returns:
-        dict: The fields with the numerical aperture applied
+        dict: The fields with the numerical aperture applied.
     """
     assert numerical_aperture > 0, "numerical_aperture must be positive"
+    if smooth_mask:
+        assert smooth_width > 0, "smooth_width must be positive if smooth_mask is enabled"
 
     if not overwrite_fields:
         fields = copy.deepcopy(fields)
@@ -106,12 +117,32 @@ def apply_numerical_aperture(fields: dict, numerical_aperture: float, overwrite_
         omega = fields[field_name]["omega_space"]
 
         kxm, kym, omegam = np.meshgrid(kx, ky, omega, indexing="ij")
+        k_trans = np.sqrt(kxm**2 + kym**2)
+        k_aperture = numerical_aperture * omegam / const.c
 
-        mask = np.where(kxm**2 + kym**2 > (numerical_aperture * omegam / const.c) ** 2, 0, 1)
+        if smooth_mask and smooth_width > 0:
+            # Hard mask region
+            mask = np.zeros_like(k_trans)
+            # Fully open region
+            mask[k_trans < (k_aperture - smooth_width / 2)] = 1.0
+            # Smooth transition region
+            transition = (k_trans >= (k_aperture - smooth_width / 2)) & (k_trans <= (k_aperture + smooth_width / 2))
+            # Sinusoidal slope from 1 to 0
+            mask[transition] = 0.5 * (
+                1 + np.cos(np.pi * (k_trans[transition] - (k_aperture[transition] - smooth_width / 2)) / smooth_width)
+            )
+        else:
+            # Hard mask
+            mask = np.where(k_trans > k_aperture, 0, 1)
 
         fields[field_name]["data"] *= mask
         fields[field_name]["numerical_aperture"] = numerical_aperture
         fields[field_name]["numerical_aperture_mask"] = mask
+        if smooth_mask:
+            fields[field_name]["numerical_aperture_smooth"] = True
+            fields[field_name]["numerical_aperture_smooth_width"] = smooth_width
+        else:
+            fields[field_name]["numerical_aperture_smooth"] = False
 
     return fields
 
@@ -430,7 +461,7 @@ def restore_fields_kko(fields: dict, delta_t: float, field_components=["x", "y"]
         dict: A dictionary with the same keys as the input, but with the field data and axis units
             transformed to k-omega space and padded to original size.
     """
-    field_names = list(fields.keys())
+    # field_names = list(fields.keys())
 
     ret_dict = {}
 
