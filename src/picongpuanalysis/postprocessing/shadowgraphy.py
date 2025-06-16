@@ -78,11 +78,10 @@ def apply_numerical_aperture(
     fields: dict,
     numerical_aperture: float,
     overwrite_fields: bool = True,
-    smooth_mask: bool = False,
-    smooth_width: float = 0.0,
+    window_function=None,
 ) -> dict:
     """
-    Applies a numerical aperture to the fields in the k-omega space, with optional smooth (sinusoidal) edge.
+    Applies a numerical aperture to the fields in the k-omega space, with optional radial window function.
 
     Parameters:
         fields (dict): A dictionary with the fields as keys and a dictionary containing the
@@ -90,17 +89,13 @@ def apply_numerical_aperture(
         numerical_aperture (float): The numerical aperture to apply.
         overwrite_fields (bool, optional): If True, the original fields will be overwritten.
             If False, a copy of the fields will be made and the numerical aperture will be applied on the copy.
-        smooth_mask (bool, optional): If True, applies a smooth (sinusoidal) transition at the aperture edge.
-            Default is False (hard mask).
-        smooth_width (float, optional): Width (in k units) of the sinusoidal transition region at the edge.
-            Only used if smooth_mask is True. Default is 0.0 (no smoothing).
+        window_function (callable, optional): A function from scipy.signal.windows that takes an integer (length)
+            and returns a 1D window array. If provided, the window is applied radially within the aperture.
 
     Returns:
         dict: The fields with the numerical aperture applied.
     """
     assert numerical_aperture > 0, "numerical_aperture must be positive"
-    if smooth_mask:
-        assert smooth_width > 0, "smooth_width must be positive if smooth_mask is enabled"
 
     if not overwrite_fields:
         fields = copy.deepcopy(fields)
@@ -120,29 +115,39 @@ def apply_numerical_aperture(
         k_trans = np.sqrt(kxm**2 + kym**2)
         k_aperture = np.abs(numerical_aperture * omegam / const.c)
 
-        if smooth_mask and smooth_width > 0:
-            # Hard mask region
-            mask = np.zeros_like(k_trans)
-            # Fully open region
-            mask[k_trans < (k_aperture - smooth_width / 2)] = 1.0
-            # Smooth transition region
-            transition = (k_trans >= (k_aperture - smooth_width / 2)) & (k_trans <= (k_aperture + smooth_width / 2))
-            # Sinusoidal slope from 1 to 0
-            mask[transition] = 0.5 * (
-                1 + np.cos(np.pi * (k_trans[transition] - (k_aperture[transition] - smooth_width / 2)) / smooth_width)
-            )
+        mask = np.zeros_like(k_trans)
+        inside = k_trans < k_aperture
+
+        if window_function is not None:
+            # For each omega slice, apply the window radially
+            for idx in range(omegam.shape[2]):
+                k_max = k_aperture[:, :, idx].max()
+                # Only apply window if aperture is nonzero
+                if k_max > 0:
+                    # Find all k_perp within aperture for this omega
+                    k_perp_flat = k_trans[:, :, idx][inside[:, :, idx]]
+                    if k_perp_flat.size > 1:
+                        # Sort k_perp for windowing
+                        sort_idx = np.argsort(k_perp_flat)
+                        k_perp_sorted = k_perp_flat[sort_idx]
+                        n = k_perp_sorted.size
+                        win = window_function(n)
+                        # Assign window values to mask
+                        mask_slice = np.zeros_like(k_perp_flat)
+                        mask_slice[sort_idx] = win
+                        mask[:, :, idx][inside[:, :, idx]] = mask_slice
+                    elif k_perp_flat.size == 1:
+                        mask[:, :, idx][inside[:, :, idx]] = 1.0
         else:
-            # Hard mask
-            mask = np.where(k_trans > k_aperture, 0, 1)
+            mask[inside] = 1.0
 
         fields[field_name]["data"] *= mask
         fields[field_name]["numerical_aperture"] = numerical_aperture
         fields[field_name]["numerical_aperture_mask"] = mask
-        if smooth_mask:
-            fields[field_name]["numerical_aperture_smooth"] = True
-            fields[field_name]["numerical_aperture_smooth_width"] = smooth_width
+        if window_function is not None:
+            fields[field_name]["numerical_aperture_window"] = window_function.__name__
         else:
-            fields[field_name]["numerical_aperture_smooth"] = False
+            fields[field_name]["numerical_aperture_window"] = None
 
     return fields
 
