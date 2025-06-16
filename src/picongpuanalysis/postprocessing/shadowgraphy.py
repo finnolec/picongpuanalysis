@@ -122,22 +122,33 @@ def apply_numerical_aperture(
             # For each omega slice, apply the window radially
             for idx in range(omegam.shape[2]):
                 k_max = k_aperture[:, :, idx].max()
-                # Only apply window if aperture is nonzero
                 if k_max > 0:
-                    # Find all k_perp within aperture for this omega
+                    # Get all k_perp within aperture for this omega
                     k_perp_flat = k_trans[:, :, idx][inside[:, :, idx]]
-                    if k_perp_flat.size > 1:
+                    if k_perp_flat.size > 0:
                         # Sort k_perp for windowing
                         sort_idx = np.argsort(k_perp_flat)
                         k_perp_sorted = k_perp_flat[sort_idx]
+                        # Normalize k_perp so that 0 maps to window[n//2] (max), and k_max maps to window[0] and window[-1] (min)
                         n = k_perp_sorted.size
                         win = window_function(n)
-                        # Assign window values to mask
-                        mask_slice = np.zeros_like(k_perp_flat)
-                        mask_slice[sort_idx] = win
+                        # Shift window so that its maximum is at the center (n//2)
+                        # Interpolate window so that k_perp=0 -> win[n//2], k_perp=k_max -> win[0] or win[-1]
+                        # We'll use np.interp for this mapping
+                        # The window is assumed to be symmetric and centered
+                        normed = k_perp_sorted / k_max  # 0 ... 1
+                        # Create window x axis: 0 ... 1, with win[n//2] at 0, win[0] at 1
+                        # So flip the window if needed
+                        if win[0] < win[n // 2]:
+                            win = win[::-1]
+                        window_x = np.linspace(0, 1, n)
+                        # Map normed=0 to win[n//2], normed=1 to win[0]
+                        # So shift window so that win[n//2] is at window_x=0
+                        shift = n // 2
+                        win_shifted = np.roll(win, -shift)
+                        mask_slice = np.interp(normed, window_x, win_shifted)
+                        # Assign to mask
                         mask[:, :, idx][inside[:, :, idx]] = mask_slice
-                    elif k_perp_flat.size == 1:
-                        mask[:, :, idx][inside[:, :, idx]] = 1.0
         else:
             mask[inside] = 1.0
 
