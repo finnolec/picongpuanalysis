@@ -81,7 +81,7 @@ def apply_numerical_aperture(
     window_function=None,
 ) -> dict:
     """
-    Applies a numerical aperture to the fields in the k-omega space, with optional radial window function.
+    Applies a numerical aperture to the fields in the k-omega space, with optional window function.
 
     Parameters:
         fields (dict): A dictionary with the fields as keys and a dictionary containing the
@@ -89,8 +89,10 @@ def apply_numerical_aperture(
         numerical_aperture (float): The numerical aperture to apply.
         overwrite_fields (bool, optional): If True, the original fields will be overwritten.
             If False, a copy of the fields will be made and the numerical aperture will be applied on the copy.
-        window_function (callable, optional): A function from scipy.signal.windows that takes an integer (length)
-            and returns a 1D window array. If provided, the window is applied radially within the aperture.
+        window_function (callable, optional): A window function from scipy.signal.windows. If provided,
+            it will be applied radially in k_perp, centered at k_perp=0, with the window's support
+            extending to k_perp = NA * omega / c. The window function should accept an integer (number of points)
+            and return a 1D array.
 
     Returns:
         dict: The fields with the numerical aperture applied.
@@ -112,45 +114,41 @@ def apply_numerical_aperture(
         omega = fields[field_name]["omega_space"]
 
         kxm, kym, omegam = np.meshgrid(kx, ky, omega, indexing="ij")
-        k_trans = np.sqrt(kxm**2 + kym**2)
+        k_perp = np.sqrt(kxm**2 + kym**2)
         k_aperture = np.abs(numerical_aperture * omegam / const.c)
 
-        mask = np.zeros_like(k_trans)
-        inside = k_trans < k_aperture
-
         if window_function is not None:
-            # For each omega slice, apply the window radially
+            # For each omega slice, apply the window function radially in k_perp
+            mask = np.zeros_like(k_perp)
             for idx in range(omegam.shape[2]):
-                k_max = k_aperture[:, :, idx].max()
-                if k_max > 0:
-                    # Get all k_perp within aperture for this omega
-                    k_perp_flat = k_trans[:, :, idx][inside[:, :, idx]]
-                    if k_perp_flat.size > 0:
-                        # Sort k_perp for windowing
-                        sort_idx = np.argsort(k_perp_flat)
-                        k_perp_sorted = k_perp_flat[sort_idx]
-                        # Normalize k_perp so that 0 maps to window[n//2] (max), and k_max maps to window[0] and window[-1] (min)
-                        n = k_perp_sorted.size
-                        win = window_function(n)
-                        # Shift window so that its maximum is at the center (n//2)
-                        # Interpolate window so that k_perp=0 -> win[n//2], k_perp=k_max -> win[0] or win[-1]
-                        # We'll use np.interp for this mapping
-                        # The window is assumed to be symmetric and centered
-                        normed = k_perp_sorted / k_max  # 0 ... 1
-                        # Create window x axis: 0 ... 1, with win[n//2] at 0, win[0] at 1
-                        # So flip the window if needed
-                        if win[0] < win[n // 2]:
-                            win = win[::-1]
-                        window_x = np.linspace(0, 1, n)
-                        # Map normed=0 to win[n//2], normed=1 to win[0]
-                        # So shift window so that win[n//2] is at window_x=0
-                        shift = n // 2
-                        win_shifted = np.roll(win, -shift)
-                        mask_slice = np.interp(normed, window_x, win_shifted)
-                        # Assign to mask
-                        mask[:, :, idx][inside[:, :, idx]] = mask_slice
+                k_ap = k_aperture[:, :, idx][0, 0]  # scalar for this omega
+                if k_ap == 0:
+                    continue
+                # Compute normalized k_perp for this omega slice
+                k_perp_slice = k_perp[:, :, idx]
+                # Only apply window inside aperture
+                inside = k_perp_slice <= k_ap
+                # Number of points for window: use the max k_perp index inside aperture
+                n_points = np.count_nonzero(inside)
+                if n_points == 0:
+                    continue
+                # Sort k_perp values inside aperture for window mapping
+                k_perp_flat = k_perp_slice[inside]
+                # Map k_perp from 0 to k_ap to window indices
+                window_vals = window_function(n_points)
+                # Assign window values to mask
+                # Sort k_perp_flat and assign window values in order of increasing k_perp
+                sort_idx = np.argsort(k_perp_flat)
+                mask_slice = np.zeros_like(k_perp_slice)
+                mask_indices = np.argwhere(inside)
+                for i, idx_pair in enumerate(mask_indices[sort_idx]):
+                    mask_slice[tuple(idx_pair)] = window_vals[i]
+                mask[:, :, idx] = mask_slice
+            # Hard cutoff outside aperture
+            mask[k_perp > k_aperture] = 0
         else:
-            mask[inside] = 1.0
+            # Hard mask
+            mask = np.where(k_perp > k_aperture, 0, 1)
 
         fields[field_name]["data"] *= mask
         fields[field_name]["numerical_aperture"] = numerical_aperture
