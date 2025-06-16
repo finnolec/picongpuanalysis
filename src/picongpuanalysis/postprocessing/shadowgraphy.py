@@ -123,7 +123,7 @@ def apply_numerical_aperture(
         # k_aperture = np.abs(numerical_aperture * omegam / const.c)
         # k_soft = np.abs(aperture_softening * omegam / const.c)
         # k_aperture_soft = k_aperture + k_soft
-        k_aperture_soft = np.abs((numerical_aperture + aperture_softening) * omegam / const.c)
+        k_aperture_soft = np.abs(numerical_aperture * (1 + aperture_softening) * omegam / const.c)
 
         if window_function is not None:
             # For each omega slice, apply the window function radially in k_perp
