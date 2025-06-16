@@ -124,18 +124,19 @@ def apply_numerical_aperture(
                 k_ap = k_aperture[:, :, idx][0, 0]  # scalar for this omega
                 if k_ap == 0:
                     continue
+                # Compute normalized k_perp for this omega slice
                 k_perp_slice = k_perp[:, :, idx]
+                # Only apply window inside aperture
                 inside = k_perp_slice <= k_ap
-                # Normalized radial coordinate in [-1, 1]
-                r = k_perp_slice / k_ap  # 0 at center, 1 at edge
-                # Map r in [0, 1] to window indices in [0, n_points-1]
+                # Number of points for window: use the max k_perp index inside aperture
                 n_points = np.count_nonzero(inside)
                 if n_points == 0:
                     continue
-                window_vals = window_function(n_points)
-                # Interpolate window values for each r (from 0 to 1)
-                # For symmetric window, you may want to use n_points*2-1 and center at 0
-                window_interp = np.interp(r[inside], np.linspace(0, 1, n_points), window_vals)
+                window_vals = window_function(2 * n_points - 1)
+                # r in [-1, 1]
+                r = k_perp_slice / k_ap
+                # Map r in [-1, 1] to window indices
+                window_interp = np.interp(r[inside], np.linspace(-1, 1, 2 * n_points - 1), window_vals)
                 mask_slice = np.zeros_like(k_perp_slice)
                 mask_slice[inside] = window_interp
                 mask[:, :, idx] = mask_slice
