@@ -79,9 +79,10 @@ def apply_numerical_aperture(
     numerical_aperture: float,
     overwrite_fields: bool = True,
     window_function=None,
+    aperture_softening: float = 0.0,
 ) -> dict:
     """
-    Applies a numerical aperture to the fields in the k-omega space, with optional window function.
+    Applies a numerical aperture to the fields in the k-omega space, with optional window function and softening.
 
     Parameters:
         fields (dict): A dictionary with the fields as keys and a dictionary containing the
@@ -91,13 +92,17 @@ def apply_numerical_aperture(
             If False, a copy of the fields will be made and the numerical aperture will be applied on the copy.
         window_function (callable, optional): A window function from scipy.signal.windows. If provided,
             it will be applied radially in k_perp, centered at k_perp=0, with the window's support
-            extending to k_perp = NA * omega / c. The window function should accept an integer (number of points)
-            and return a 1D array.
+            extending to k_perp = NA * omega / c + aperture_softening * omega / c. The window function should accept
+            an integer (number of points) and return a 1D array.
+        aperture_softening (float, optional): Additional softening factor (>= 0) for the aperture, so that the
+            largest non-zero k_perp values are at k_perp = NA * omega / c + aperture_softening * omega / c.
+            Default is 0.0 (no softening).
 
     Returns:
         dict: The fields with the numerical aperture applied.
     """
     assert numerical_aperture > 0, "numerical_aperture must be positive"
+    assert aperture_softening >= 0, "aperture_softening must be >= 0"
 
     if not overwrite_fields:
         fields = copy.deepcopy(fields)
@@ -116,38 +121,41 @@ def apply_numerical_aperture(
         kxm, kym, omegam = np.meshgrid(kx, ky, omega, indexing="ij")
         k_perp = np.sqrt(kxm**2 + kym**2)
         k_aperture = np.abs(numerical_aperture * omegam / const.c)
+        k_soft = np.abs(aperture_softening * omegam / const.c)
+        k_aperture_soft = k_aperture + k_soft
 
         if window_function is not None:
             # For each omega slice, apply the window function radially in k_perp
             mask = np.zeros_like(k_perp)
             for idx in range(omegam.shape[2]):
-                k_ap = k_aperture[:, :, idx][0, 0]  # scalar for this omega
-                if k_ap == 0:
+                # k_ap = k_aperture[:, :, idx][0, 0]  # scalar for this omega
+                k_ap_soft = k_aperture_soft[:, :, idx][0, 0]
+                if k_ap_soft == 0:
                     continue
-                # Compute normalized k_perp for this omega slice
                 k_perp_slice = k_perp[:, :, idx]
-                # Only apply window inside aperture
-                inside = k_perp_slice <= k_ap
-                # Number of points for window: use the max k_perp index inside aperture
+                # Only apply window inside softened aperture
+                inside = k_perp_slice <= k_ap_soft
                 n_points = np.count_nonzero(inside)
                 if n_points == 0:
                     continue
                 window_vals = window_function(2 * n_points - 1)
-                # r in [-1, 1]
-                r = k_perp_slice / k_ap
-                # Map r in [-1, 1] to window indices
+                # r in [-1, 1], with r=0 at k_perp=0, r=1 at k_ap_soft
+                r = (k_perp_slice - 0) / (k_ap_soft - 0)
+                r = 2 * r - 1  # map [0,1] -> [-1,1]
+                # Only interpolate for inside
                 window_interp = np.interp(r[inside], np.linspace(-1, 1, 2 * n_points - 1), window_vals)
                 mask_slice = np.zeros_like(k_perp_slice)
                 mask_slice[inside] = window_interp
                 mask[:, :, idx] = mask_slice
-            # Hard cutoff outside aperture
-            mask[k_perp > k_aperture] = 0
+            # Hard cutoff outside softened aperture
+            mask[k_perp > k_aperture_soft] = 0
         else:
-            # Hard mask
-            mask = np.where(k_perp > k_aperture, 0, 1)
+            # Hard mask with softened aperture
+            mask = np.where(k_perp > k_aperture_soft, 0, 1)
 
         fields[field_name]["data"] *= mask
         fields[field_name]["numerical_aperture"] = numerical_aperture
+        fields[field_name]["aperture_softening"] = aperture_softening
         fields[field_name]["numerical_aperture_mask"] = mask
 
     return fields
