@@ -95,7 +95,7 @@ def apply_numerical_aperture(
             extending to k_perp = NA * omega / c + aperture_softening * omega / c. The window function should accept
             an integer (number of points) and return a 1D array.
         aperture_softening (float, optional): Additional softening factor (>= 0) for the aperture, so that the
-            largest non-zero k_perp values are at k_perp = NA * omega / c + aperture_softening * omega / c.
+            largest non-zero k_perp values are at k_perp = NA * (1 + aperture_softening) * omega / c.
             Default is 0.0 (no softening).
 
     Returns:
@@ -120,16 +120,12 @@ def apply_numerical_aperture(
 
         kxm, kym, omegam = np.meshgrid(kx, ky, omega, indexing="ij")
         k_perp = np.sqrt(kxm**2 + kym**2)
-        # k_aperture = np.abs(numerical_aperture * omegam / const.c)
-        # k_soft = np.abs(aperture_softening * omegam / const.c)
-        # k_aperture_soft = k_aperture + k_soft
         k_aperture_soft = np.abs(numerical_aperture * (1 + aperture_softening) * omegam / const.c)
 
         if window_function is not None:
             # For each omega slice, apply the window function radially in k_perp
             mask = np.zeros_like(k_perp)
             for idx in range(omegam.shape[2]):
-                # k_ap = k_aperture[:, :, idx][0, 0]  # scalar for this omega
                 k_ap_soft = k_aperture_soft[:, :, idx][0, 0]
                 if k_ap_soft == 0:
                     continue
@@ -142,7 +138,6 @@ def apply_numerical_aperture(
                 window_vals = window_function(2 * n_points - 1)
                 # r in [-1, 1], with r=0 at k_perp=0, r=1 at k_ap_soft
                 r = k_perp_slice / k_ap_soft
-                # r = 2 * r - 1  # map [0,1] -> [-1,1]
                 # Only interpolate for inside
                 window_interp = np.interp(r[inside], np.linspace(-1, 1, 2 * n_points - 1), window_vals)
                 mask_slice = np.zeros_like(k_perp_slice)
