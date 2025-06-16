@@ -149,10 +149,6 @@ def apply_numerical_aperture(
         fields[field_name]["data"] *= mask
         fields[field_name]["numerical_aperture"] = numerical_aperture
         fields[field_name]["numerical_aperture_mask"] = mask
-        if window_function is not None:
-            fields[field_name]["numerical_aperture_window"] = window_function.__name__
-        else:
-            fields[field_name]["numerical_aperture_window"] = None
 
     return fields
 
