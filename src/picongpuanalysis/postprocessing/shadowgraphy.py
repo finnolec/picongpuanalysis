@@ -124,25 +124,20 @@ def apply_numerical_aperture(
                 k_ap = k_aperture[:, :, idx][0, 0]  # scalar for this omega
                 if k_ap == 0:
                     continue
-                # Compute normalized k_perp for this omega slice
                 k_perp_slice = k_perp[:, :, idx]
-                # Only apply window inside aperture
                 inside = k_perp_slice <= k_ap
-                # Number of points for window: use the max k_perp index inside aperture
+                # Normalized radial coordinate in [-1, 1]
+                r = k_perp_slice / k_ap  # 0 at center, 1 at edge
+                # Map r in [0, 1] to window indices in [0, n_points-1]
                 n_points = np.count_nonzero(inside)
                 if n_points == 0:
                     continue
-                # Sort k_perp values inside aperture for window mapping
-                k_perp_flat = k_perp_slice[inside]
-                # Map k_perp from 0 to k_ap to window indices
                 window_vals = window_function(n_points)
-                # Assign window values to mask
-                # Sort k_perp_flat and assign window values in order of increasing k_perp
-                sort_idx = np.argsort(k_perp_flat)
+                # Interpolate window values for each r (from 0 to 1)
+                # For symmetric window, you may want to use n_points*2-1 and center at 0
+                window_interp = np.interp(r[inside], np.linspace(0, 1, n_points), window_vals)
                 mask_slice = np.zeros_like(k_perp_slice)
-                mask_indices = np.argwhere(inside)
-                for i, idx_pair in enumerate(mask_indices[sort_idx]):
-                    mask_slice[tuple(idx_pair)] = window_vals[i]
+                mask_slice[inside] = window_interp
                 mask[:, :, idx] = mask_slice
             # Hard cutoff outside aperture
             mask[k_perp > k_aperture] = 0
