@@ -140,8 +140,8 @@ def apply_numerical_aperture(
                     continue
                 window_vals = window_function(2 * n_points - 1)
                 # r in [-1, 1], with r=0 at k_perp=0, r=1 at k_ap_soft
-                r = (k_perp_slice - 0) / (k_ap_soft - 0)
-                r = 2 * r - 1  # map [0,1] -> [-1,1]
+                r = k_perp_slice / k_ap_soft
+                # r = 2 * r - 1  # map [0,1] -> [-1,1]
                 # Only interpolate for inside
                 window_interp = np.interp(r[inside], np.linspace(-1, 1, 2 * n_points - 1), window_vals)
                 mask_slice = np.zeros_like(k_perp_slice)
