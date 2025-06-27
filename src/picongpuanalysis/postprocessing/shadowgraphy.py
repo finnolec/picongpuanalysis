@@ -204,9 +204,8 @@ def apply_parallel_aperture(
         ky = fields[field_name]["ky_space"]
         omega = fields[field_name]["omega_space"]
 
-        central_omega = 2 * np.pi * const.c / central_wavelength * np.ones(omega.shape)
-
         kxm, kym, omegam = np.meshgrid(kx, ky, omega, indexing="ij")
+        central_omega = 2 * np.pi * const.c / central_wavelength * np.ones(omegam.shape)
         k_perp = np.sqrt(kxm**2 + kym**2)
         k_aperture_soft = np.abs(numerical_aperture * (1 + aperture_softening) * central_omega / const.c)
 
