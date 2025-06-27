@@ -60,6 +60,7 @@ def apply_band_pass_filter(
                 raise ValueError("field_name must be positive or negative")
 
             fields[field_name]["data"] = masked_fields[:, :, min_idx:max_idx]
+            fields[field_name]["omega_space_full"] = copy.deepcopy(fields[field_name]["omega_space"])
             fields[field_name]["omega_space"] = fields[field_name]["omega_space"][min_idx:max_idx]
         else:
             fields[field_name]["data"] = masked_fields
@@ -572,7 +573,8 @@ def restore_fields_kko(fields: dict, delta_t: float, field_components=["x", "y"]
 
         # Load truncated omega space
         truncated_omega_space_pos = fields[read_name_pos]["omega_space"]
-        delta_omega = np.abs(truncated_omega_space_pos[1] - truncated_omega_space_pos[0])
+        omega_space_pos_full = fields[read_name_pos]["omega_space_full"]
+        delta_omega = np.abs(omega_space_pos_full[1] - omega_space_pos_full[0])
 
         # Calculate final size of array
         n_t = int(round(2 * np.pi / (delta_t * delta_omega)))
@@ -583,7 +585,10 @@ def restore_fields_kko(fields: dict, delta_t: float, field_components=["x", "y"]
 
         # Insert truncated data into padded array
         start_idx = _find_closest_idx(padded_omega_space, truncated_omega_space_pos[0])
-        end_idx = _find_closest_idx(padded_omega_space, truncated_omega_space_pos[-1]) + 1
+        if truncated_omega_space_pos[0] <= truncated_omega_space_pos[-1]:
+            end_idx = _find_closest_idx(padded_omega_space, truncated_omega_space_pos[-1]) + 1
+        else:
+            end_idx = _find_closest_idx(padded_omega_space, truncated_omega_space_pos[-1])
 
         padded_array[:, :, start_idx:end_idx] = fields[read_name_pos]["data"]
 
@@ -593,7 +598,10 @@ def restore_fields_kko(fields: dict, delta_t: float, field_components=["x", "y"]
 
         # Insert truncated data into padded array
         start_idx = _find_closest_idx(padded_omega_space, truncated_omega_space_neg[0])
-        end_idx = _find_closest_idx(padded_omega_space, truncated_omega_space_neg[-1]) + 1
+        if truncated_omega_space_neg[0] <= truncated_omega_space_neg[-1]:
+            end_idx = _find_closest_idx(padded_omega_space, truncated_omega_space_neg[-1]) + 1
+        else:
+            end_idx = _find_closest_idx(padded_omega_space, truncated_omega_space_neg[-1])
 
         padded_array[:, :, start_idx:end_idx] = fields[read_name_neg]["data"]
 
