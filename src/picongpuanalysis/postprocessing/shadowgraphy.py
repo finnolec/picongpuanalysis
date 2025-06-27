@@ -158,6 +158,94 @@ def apply_numerical_aperture(
 
 
 @typeguard.typechecked
+def apply_parallel_aperture(
+    fields: dict,
+    numerical_aperture: float,
+    central_wavelength: float,
+    overwrite_fields: bool = True,
+    window_function=None,
+    aperture_softening: float = 0.0,
+) -> dict:
+    """
+    Applies a numerical aperture to the fields in the k-omega space, with optional window function and softening.
+
+    Parameters:
+        fields (dict): A dictionary with the fields as keys and a dictionary containing the
+            data and omega_space of the field as values.
+        numerical_aperture (float): The numerical aperture to apply.
+        central_wavelength (float): The central wavelength of the light used.
+        overwrite_fields (bool, optional): If True, the original fields will be overwritten.
+            If False, a copy of the fields will be made and the numerical aperture will be applied on the copy.
+        window_function (callable, optional): A window function from scipy.signal.windows. If provided,
+            it will be applied radially in k_perp, centered at k_perp=0, with the window's support
+            extending to k_perp = NA * omega / c + aperture_softening * omega / c. The window function should accept
+            an integer (number of points) and return a 1D array.
+        aperture_softening (float, optional): Additional softening factor (>= 0) for the aperture, so that the
+            largest non-zero k_perp values are at k_perp = NA * (1 + aperture_softening) * omega / c.
+            Default is 0.0 (no softening).
+
+    Returns:
+        dict: The fields with the numerical aperture applied.
+    """
+    assert numerical_aperture > 0, "numerical_aperture must be positive"
+    assert aperture_softening >= 0, "aperture_softening must be >= 0"
+
+    if not overwrite_fields:
+        fields = copy.deepcopy(fields)
+
+    for field_name in fields.keys():
+        assert fields[field_name]["axis_units"] == [
+            unit_k,
+            unit_k,
+            unit_omega,
+        ], "Field units must be [unit_k, unit_k, unit_omega]"
+
+        kx = fields[field_name]["kx_space"]
+        ky = fields[field_name]["ky_space"]
+        omega = fields[field_name]["omega_space"]
+
+        central_omega = 2 * np.pi * const.c / central_wavelength * np.ones(omega.shape)
+
+        kxm, kym, omegam = np.meshgrid(kx, ky, omega, indexing="ij")
+        k_perp = np.sqrt(kxm**2 + kym**2)
+        k_aperture_soft = np.abs(numerical_aperture * (1 + aperture_softening) * central_omega / const.c)
+
+        if window_function is not None:
+            # For each omega slice, apply the window function radially in k_perp
+            mask = np.zeros_like(k_perp)
+            for idx in range(omegam.shape[2]):
+                k_ap_soft = k_aperture_soft[:, :, idx][0, 0]
+                if k_ap_soft == 0:
+                    continue
+                k_perp_slice = k_perp[:, :, idx]
+                # Only apply window inside softened aperture
+                inside = k_perp_slice <= k_ap_soft
+                n_points = np.count_nonzero(inside)
+                if n_points == 0:
+                    continue
+                window_vals = window_function(2 * n_points - 1)
+                # r in [-1, 1], with r=0 at k_perp=0, r=1 at k_ap_soft
+                r = k_perp_slice / k_ap_soft
+                # Only interpolate for inside
+                window_interp = np.interp(r[inside], np.linspace(-1, 1, 2 * n_points - 1), window_vals)
+                mask_slice = np.zeros_like(k_perp_slice)
+                mask_slice[inside] = window_interp
+                mask[:, :, idx] = mask_slice
+            # Hard cutoff outside softened aperture
+            mask[k_perp > k_aperture_soft] = 0
+        else:
+            # Hard mask with softened aperture
+            mask = np.where(k_perp > k_aperture_soft, 0, 1)
+
+        fields[field_name]["data"] *= mask
+        fields[field_name]["numerical_aperture"] = numerical_aperture
+        fields[field_name]["aperture_softening"] = aperture_softening
+        fields[field_name]["numerical_aperture_mask"] = mask
+
+    return fields
+
+
+@typeguard.typechecked
 def apply_custom_mask(fields: dict, mask: np.ndarray, overwrite_fields: bool = True) -> dict:
     if not overwrite_fields:
         fields = copy.deepcopy(fields)
