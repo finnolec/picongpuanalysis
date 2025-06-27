@@ -27,7 +27,7 @@ def apply_band_pass_filter(
     Returns:
         dict: A dictionary with the filtered fields.
     """
-    assert lower_cutoff < upper_cutoff, "lower_cutoff must be smaller than upper_cutoff"
+    assert lower_cutoff <= upper_cutoff, "lower_cutoff must be smaller or equal to upper_cutoff"
     assert lower_cutoff > 0, "lower_cutoff must be positive"
 
     if not overwrite_fields:
@@ -38,12 +38,12 @@ def apply_band_pass_filter(
 
         omega_space = np.abs(fields[field_name]["omega_space"])
         # Round cutoffs to nearest omega_space value
-        lower_cutoff = float(omega_space[_find_closest_idx(omega_space, lower_cutoff)])
-        upper_cutoff = float(omega_space[_find_closest_idx(omega_space, upper_cutoff)])
+        lower_cutoff_val = float(omega_space[_find_closest_idx(omega_space, lower_cutoff)])
+        upper_cutoff_val = float(omega_space[_find_closest_idx(omega_space, upper_cutoff)])
 
         # Set band-pass filter
-        mask_upper = np.where(omega_space > upper_cutoff, 0, 1)
-        mask_lower = np.where(omega_space < lower_cutoff, 0, 1)
+        mask_upper = np.where(omega_space > upper_cutoff_val, 0, 1)
+        mask_lower = np.where(omega_space < lower_cutoff_val, 0, 1)
         mask = mask_upper * mask_lower
 
         masked_fields = fields[field_name]["data"] * mask
@@ -51,11 +51,11 @@ def apply_band_pass_filter(
         # Truncate arrays that are previously truncated
         if " - " in field_name:
             if "positive" in field_name:
-                min_idx = _find_closest_idx(fields[field_name]["omega_space"], lower_cutoff)
-                max_idx = _find_closest_idx(fields[field_name]["omega_space"], upper_cutoff)
+                min_idx = _find_closest_idx(fields[field_name]["omega_space"], lower_cutoff_val)
+                max_idx = _find_closest_idx(fields[field_name]["omega_space"], upper_cutoff_val) + 1
             elif "negative" in field_name:
-                min_idx = _find_closest_idx(fields[field_name]["omega_space"], -upper_cutoff) + 1
-                max_idx = _find_closest_idx(fields[field_name]["omega_space"], -lower_cutoff) + 1
+                min_idx = _find_closest_idx(fields[field_name]["omega_space"], -upper_cutoff_val)
+                max_idx = _find_closest_idx(fields[field_name]["omega_space"], -lower_cutoff_val) + 1
             else:
                 raise ValueError("field_name must be positive or negative")
 
@@ -65,8 +65,8 @@ def apply_band_pass_filter(
             fields[field_name]["data"] = masked_fields
 
         fields[field_name]["band-pass_mask"] = mask
-        fields[field_name]["upper_cutoff"] = upper_cutoff
-        fields[field_name]["lower_cutoff"] = lower_cutoff
+        fields[field_name]["upper_cutoff"] = upper_cutoff_val
+        fields[field_name]["lower_cutoff"] = lower_cutoff_val
 
         del masked_fields
 
