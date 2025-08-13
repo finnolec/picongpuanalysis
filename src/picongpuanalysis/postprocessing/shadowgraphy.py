@@ -546,7 +546,9 @@ def propagate_fields(
 
 
 @typeguard.typechecked
-def restore_fields_kko(fields: dict, delta_t: float, field_components=["x", "y"], field_names=["E", "B"]) -> dict:
+def restore_fields_kko(
+    fields: dict, delta_t: float, n_t: int, field_components=["x", "y"], field_names=["E", "B"]
+) -> dict:
     """
     Pad the truncated k-omega space fields to the original size for 3D FFTs.
 
@@ -554,6 +556,7 @@ def restore_fields_kko(fields: dict, delta_t: float, field_components=["x", "y"]
         fields (dict): A dictionary with field names as keys and dictionaries containing the field data,
             axis labels, and axis units as values.
         delta_t (float): The time step to use for padding.
+        n_t (int): The number of total time steps.
 
     Returns:
         dict: A dictionary with the same keys as the input, but with the field data and axis units
@@ -573,11 +576,6 @@ def restore_fields_kko(fields: dict, delta_t: float, field_components=["x", "y"]
 
         # Load truncated omega space
         truncated_omega_space_pos = fields[read_name_pos]["omega_space"]
-        omega_space_pos_full = fields[read_name_pos]["omega_space_full"]
-        delta_omega = np.abs(omega_space_pos_full[1] - omega_space_pos_full[0])
-
-        # Calculate final size of array
-        n_t = int(round(2 * np.pi / (delta_t * delta_omega)))
 
         padded_omega_space = 2 * np.pi * (np.arange(n_t) - n_t / 2) / n_t / delta_t
 
