@@ -269,7 +269,7 @@ def apply_custom_mask(fields: dict, mask: np.ndarray, overwrite_fields: bool = T
 
 
 @typeguard.typechecked
-def compute_shadowgram(fields: dict) -> dict:
+def compute_shadowgram(fields: dict, low_memory_mode: bool = False) -> dict:
     """
     Compute a shadowgram in z direction from the given electric and magnetic fields.
 
@@ -293,8 +293,20 @@ def compute_shadowgram(fields: dict) -> dict:
 
     delta_t = fields["Ex"]["t_space"][1] - fields["Ex"]["t_space"][0]
 
-    poynting_vectors = fields["Ex"]["data"] * fields["By"]["data"] - fields["Ey"]["data"] * fields["Bx"]["data"]
-    data = np.sum(np.real(poynting_vectors), axis=2) * delta_t / const.mu_0
+    if low_memory_mode:
+        nx, ny, nt = fields["Ex"]["data"].shape
+        acc = np.zeros((nx, ny), dtype=np.float64)
+
+        for t in range(nt):
+            acc += (
+                fields["Ex"]["data"][:, :, t] * fields["By"]["data"][:, :, t]
+                - fields["Ey"]["data"][:, :, t] * fields["Bx"]["data"][:, :, t]
+            ).real
+
+        data = acc * delta_t / const.mu_0
+    else:
+        poynting_vectors = fields["Ex"]["data"] * fields["By"]["data"] - fields["Ey"]["data"] * fields["Bx"]["data"]
+        data = np.sum(np.real(poynting_vectors), axis=2) * delta_t / const.mu_0
 
     ret_dict = {}
     ret_dict["data"] = data
@@ -327,7 +339,7 @@ def compute_shadowgram(fields: dict) -> dict:
 
 
 @typeguard.typechecked
-def fft_xyo_to_kko(fields: dict) -> dict:
+def fft_xyo_to_kko(fields: dict, low_memory_mode=False) -> dict:
     """
     Fourier transform fields in k-position space to fields in k-omega space.
 
@@ -350,7 +362,18 @@ def fft_xyo_to_kko(fields: dict) -> dict:
             unit_omega,
         ], "Field units must be [unit_m, unit_m, unit_omega]"
 
-        data_kko = np.fft.fftshift(np.fft.fft2(fields[field_name]["data"], axes=(0, 1)), axes=(0, 1))
+        if low_memory_mode:
+            data = fields[field_name]["data"]
+            nx, ny, no = data.shape
+            data_kko = np.empty_like(data, dtype=np.complex128)
+
+            tmp = np.empty((nx, ny), dtype=np.complex128)
+            for o_idx in range(no):
+                np.fft.fft2(data[:, :, o_idx], out=tmp)
+                data_kko[:, :, o_idx] = np.fft.fftshift(tmp)
+        else:
+            data_kko = np.fft.fftshift(np.fft.fft2(fields[field_name]["data"], axes=(0, 1)), axes=(0, 1))
+
         ret_dict.setdefault(field_name, {"data": data_kko})
 
         ret_dict[field_name]["axis_labels"] = ["kx_wavevector", "ky_wavevector", "omega_frequency"]
@@ -419,7 +442,7 @@ def fft_xyt_to_xyo(fields: dict) -> dict:
 
 
 @typeguard.typechecked
-def ifft_kko_to_xyt(fields: dict) -> dict:
+def ifft_kko_to_xyt(fields: dict, low_memory_mode=False) -> dict:
     """
     Transforms fields from k-omega space to x-y-t space.
 
@@ -442,7 +465,18 @@ def ifft_kko_to_xyt(fields: dict) -> dict:
             unit_omega,
         ], "Field units must be [unit_k, unit_k, unit_omega]"
 
-        data_xyt = np.fft.ifftn(np.fft.ifftshift(fields[field_name]["data"], axes=(0, 1)), axes=(0, 1))
+        if low_memory_mode:
+            data = fields[field_name]["data"]
+            nx, ny, no = data.shape
+            data_xyt = np.empty_like(data, dtype=np.complex128)
+
+            tmp = np.empty((nx, ny), dtype=np.complex128)
+            for o_idx in range(no):
+                np.fft.ifft2(np.fft.ifftshift(data[:, :, o_idx], axes=(0, 1)), out=tmp)
+                data_xyt[:, :, o_idx] = np.fft.fft(tmp, norm="forward")
+        else:
+            data_xyt = np.fft.ifftn(np.fft.ifftshift(fields[field_name]["data"], axes=(0, 1)), axes=(0, 1))
+
         # TODO check if the following still works with propagators
         # Otherwise np.fft.ifft(data_xyt, axis=2, norm="backward") might be correct.
         # It is weird that there is no fftshift anymore
