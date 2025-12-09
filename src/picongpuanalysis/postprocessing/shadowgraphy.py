@@ -270,7 +270,7 @@ def apply_custom_mask(fields: dict, mask: np.ndarray, overwrite_fields: bool = T
 
 
 @typeguard.typechecked
-def compute_shadowgram(fields: dict, low_memory_mode: bool = False) -> dict:
+def compute_shadowgram(fields: dict, low_memory_mode: bool = True) -> dict:
     """
     Compute a shadowgram in z direction from the given electric and magnetic fields.
 
@@ -551,7 +551,7 @@ def ifft_kko_to_xyt(fields: dict, mode="numpy", threads=None) -> dict:
             )
 
             fft1_plan()
-            data_xyt = fft1_out
+            data_xyt = fft1_out / no
         else:
             raise ValueError("Unknown FFT mode")
 
