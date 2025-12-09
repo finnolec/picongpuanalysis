@@ -466,13 +466,16 @@ def fft_xyt_to_xyo(fields: dict) -> dict:
 
 
 @typeguard.typechecked
-def ifft_kko_to_xyt(fields: dict, low_memory_mode=False) -> dict:
+def ifft_kko_to_xyt(fields: dict, mode="numpy", threads=None) -> dict:
     """
     Transforms fields from k-omega space to x-y-t space.
 
     Parameters:
         fields (dict): A dictionary with field names as keys and dictionaries containing the field data,
             axis labels, and axis units as values.
+
+        mode (str): The FFT mode to use. Can be either "numpy", "numpy-lowmem" or "pyfftw". Defaults to "numpy".
+        threads (int, optional): The number of threads to use for pyfftw. If None, uses os.cpu_count().
 
     Returns:
         dict: A dictionary with the same keys as the input, but with the field data and axis units
@@ -489,7 +492,7 @@ def ifft_kko_to_xyt(fields: dict, low_memory_mode=False) -> dict:
             unit_omega,
         ], "Field units must be [unit_k, unit_k, unit_omega]"
 
-        if low_memory_mode:
+        if mode == "numpy-lowmem":
             data = fields[field_name]["data"]
             nx, ny, no = data.shape
             data_xyt = np.empty_like(data, dtype=np.complex128)
@@ -498,13 +501,57 @@ def ifft_kko_to_xyt(fields: dict, low_memory_mode=False) -> dict:
             for o_idx in range(no):
                 np.fft.ifft2(np.fft.ifftshift(data[:, :, o_idx], axes=(0, 1)), out=tmp)
                 data_xyt[:, :, o_idx] = np.fft.fft(tmp, norm="forward")
-        else:
+
+            # TODO check if the following still works with propagators
+            # Otherwise np.fft.ifft(data_xyt, axis=2, norm="backward") might be correct.
+            # It is weird that there is no fftshift anymore
+            data_xyt = np.fft.fft(data_xyt, axis=2, norm="forward")
+        elif mode == "numpy":
             data_xyt = np.fft.ifftn(np.fft.ifftshift(fields[field_name]["data"], axes=(0, 1)), axes=(0, 1))
 
-        # TODO check if the following still works with propagators
-        # Otherwise np.fft.ifft(data_xyt, axis=2, norm="backward") might be correct.
-        # It is weird that there is no fftshift anymore
-        data_xyt = np.fft.fft(data_xyt, axis=2, norm="forward")
+            # TODO check if the following still works with propagators
+            # Otherwise np.fft.ifft(data_xyt, axis=2, norm="backward") might be correct.
+            # It is weird that there is no fftshift anymore
+            data_xyt = np.fft.fft(data_xyt, axis=2, norm="forward")
+        elif mode == "pyfftw":
+            data = fields[field_name]["data"]
+            nx, ny, no = data.shape
+            data_xyt = np.empty_like(data, dtype=np.complex128)
+
+            if threads is None:
+                threads = os.cpu_count()
+
+            fft2_plan = pyfftw.FFTW(
+                pyfftw.empty_aligned((nx, ny), dtype="complex128"),
+                pyfftw.empty_aligned((nx, ny), dtype="complex128"),
+                axes=(0, 1),
+                direction="FFTW_BACKWARD",
+                flags=("FFTW_MEASURE",),
+                threads=threads,
+            )
+
+            for o_idx in range(no):
+                fft2_plan.input_array[:] = np.fft.ifftshift(data[:, :, o_idx], axes=(0, 1))
+                fft2_plan()
+                data_xyt[:, :, o_idx] = fft2_plan.output_array
+
+            fft_plan_1d = pyfftw.FFTW(
+                pyfftw.empty_aligned((no,), dtype="complex128"),
+                pyfftw.empty_aligned((no,), dtype="complex128"),
+                axes=(0,),
+                direction="FFTW_FORWARD",
+                flags=("FFTW_MEASURE",),
+                threads=threads,
+            )
+
+            for x_idx in range(nx):
+                for y_idx in range(ny):
+                    fft_plan_1d.input_array[:] = data_xyt[x_idx, y_idx, :]
+                    fft_plan_1d()
+                    data_xyt[x_idx, y_idx, :] = fft_plan_1d.output_array
+        else:
+            raise ValueError("Unknown FFT mode")
+
         ret_dict.setdefault(field_name, {"data": data_xyt})
 
         ret_dict[field_name]["axis_labels"] = ["x_position", "y_position", "t_time"]
