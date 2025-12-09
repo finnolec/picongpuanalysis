@@ -521,9 +521,12 @@ def ifft_kko_to_xyt(fields: dict, mode="numpy", threads=None) -> dict:
             if threads is None:
                 threads = os.cpu_count()
 
+            fft2_in = pyfftw.empty_aligned((nx, ny), dtype=np.complex128)
+            fft2_out = pyfftw.empty_aligned((nx, ny), dtype=np.complex128)
+
             fft2_plan = pyfftw.FFTW(
-                pyfftw.empty_aligned((nx, ny), dtype="complex128"),
-                pyfftw.empty_aligned((nx, ny), dtype="complex128"),
+                fft2_in,
+                fft2_out,
                 axes=(0, 1),
                 direction="FFTW_BACKWARD",
                 flags=("FFTW_MEASURE",),
@@ -531,24 +534,24 @@ def ifft_kko_to_xyt(fields: dict, mode="numpy", threads=None) -> dict:
             )
 
             for o_idx in range(no):
-                fft2_plan.input_array[:] = np.fft.ifftshift(data[:, :, o_idx], axes=(0, 1))
+                fft2_in[:] = np.fft.ifftshift(data[:, :, o_idx], axes=(0, 1))
                 fft2_plan()
-                data_xyt[:, :, o_idx] = fft2_plan.output_array
+                data_xyt[:, :, o_idx] = fft2_out
 
-            fft_plan_1d = pyfftw.FFTW(
-                pyfftw.empty_aligned((no,), dtype="complex128"),
-                pyfftw.empty_aligned((no,), dtype="complex128"),
-                axes=(0,),
+            fft1_in = data_xyt
+            fft1_out = pyfftw.empty_aligned((nx, ny, no), dtype=np.complex128)
+
+            fft1_plan = pyfftw.FFTW(
+                fft1_in,
+                fft1_out,
+                axes=(2,),
                 direction="FFTW_FORWARD",
                 flags=("FFTW_MEASURE",),
                 threads=threads,
             )
 
-            for x_idx in range(nx):
-                for y_idx in range(ny):
-                    fft_plan_1d.input_array[:] = data_xyt[x_idx, y_idx, :]
-                    fft_plan_1d()
-                    data_xyt[x_idx, y_idx, :] = fft_plan_1d.output_array
+            fft1_plan()
+            data_xyt = fft1_out
         else:
             raise ValueError("Unknown FFT mode")
 
