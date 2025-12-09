@@ -340,14 +340,14 @@ def compute_shadowgram(fields: dict, low_memory_mode: bool = True) -> dict:
 
 
 @typeguard.typechecked
-def fft_xyo_to_kko(fields: dict, mode="numpy", threads=None) -> dict:
+def fft_xyo_to_kko(fields: dict, mode="pyfftw", threads=None) -> dict:
     """
     Fourier transform fields in k-position space to fields in k-omega space.
 
     Parameters:
         fields (dict): A dictionary with field names as keys and dictionaries containing the field data,
             axis labels, and axis units as values.
-        mode (str): The FFT mode to use. Can be either "numpy", "numpy-lowmem" or "pyfftw". Defaults to "numpy".
+        mode (str): The FFT mode to use. Can be either "numpy" or "pyfftw". Defaults to "pyfftw".
         threads (int, optional): The number of threads to use for pyfftw. If None, uses os.cpu_count().
 
     Returns:
@@ -365,16 +365,7 @@ def fft_xyo_to_kko(fields: dict, mode="numpy", threads=None) -> dict:
             unit_omega,
         ], "Field units must be [unit_m, unit_m, unit_omega]"
 
-        if mode == "numpy-lowmem":
-            data = fields[field_name]["data"]
-            nx, ny, no = data.shape
-            data_kko = np.empty_like(data, dtype=np.complex128)
-
-            tmp = np.empty((nx, ny), dtype=np.complex128)
-            for o_idx in range(no):
-                np.fft.fft2(data[:, :, o_idx], out=tmp)
-                data_kko[:, :, o_idx] = np.fft.fftshift(tmp)
-        elif mode == "numpy":
+        if mode == "numpy":
             data_kko = np.fft.fftshift(np.fft.fft2(fields[field_name]["data"], axes=(0, 1)), axes=(0, 1))
         elif mode == "pyfftw":
             data = fields[field_name]["data"]
@@ -466,7 +457,7 @@ def fft_xyt_to_xyo(fields: dict) -> dict:
 
 
 @typeguard.typechecked
-def ifft_kko_to_xyt(fields: dict, mode="numpy", threads=None) -> dict:
+def ifft_kko_to_xyt(fields: dict, mode="pyfftw", threads=None) -> dict:
     """
     Transforms fields from k-omega space to x-y-t space.
 
@@ -474,7 +465,7 @@ def ifft_kko_to_xyt(fields: dict, mode="numpy", threads=None) -> dict:
         fields (dict): A dictionary with field names as keys and dictionaries containing the field data,
             axis labels, and axis units as values.
 
-        mode (str): The FFT mode to use. Can be either "numpy", "numpy-lowmem" or "pyfftw". Defaults to "numpy".
+        mode (str): The FFT mode to use. Can be either "numpy" or "pyfftw". Defaults to "pyfftw".
         threads (int, optional): The number of threads to use for pyfftw. If None, uses os.cpu_count().
 
     Returns:
@@ -492,21 +483,7 @@ def ifft_kko_to_xyt(fields: dict, mode="numpy", threads=None) -> dict:
             unit_omega,
         ], "Field units must be [unit_k, unit_k, unit_omega]"
 
-        if mode == "numpy-lowmem":
-            data = fields[field_name]["data"]
-            nx, ny, no = data.shape
-            data_xyt = np.empty_like(data, dtype=np.complex128)
-
-            tmp = np.empty((nx, ny), dtype=np.complex128)
-            for o_idx in range(no):
-                np.fft.ifft2(np.fft.ifftshift(data[:, :, o_idx], axes=(0, 1)), out=tmp)
-                data_xyt[:, :, o_idx] = np.fft.fft(tmp, norm="forward")
-
-            # TODO check if the following still works with propagators
-            # Otherwise np.fft.ifft(data_xyt, axis=2, norm="backward") might be correct.
-            # It is weird that there is no fftshift anymore
-            data_xyt = np.fft.fft(data_xyt, axis=2, norm="forward")
-        elif mode == "numpy":
+        if mode == "numpy":
             data_xyt = np.fft.ifftn(np.fft.ifftshift(fields[field_name]["data"], axes=(0, 1)), axes=(0, 1))
 
             # TODO check if the following still works with propagators
