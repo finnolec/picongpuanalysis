@@ -5,6 +5,7 @@ import os
 import pickle
 import scipy.constants as const
 import typeguard
+import pyfftw
 
 from picongpuanalysis.utils.units import unit_k, unit_m, unit_omega, unit_t
 
@@ -339,13 +340,15 @@ def compute_shadowgram(fields: dict, low_memory_mode: bool = False) -> dict:
 
 
 @typeguard.typechecked
-def fft_xyo_to_kko(fields: dict, low_memory_mode=False) -> dict:
+def fft_xyo_to_kko(fields: dict, mode="numpy", threads=None) -> dict:
     """
     Fourier transform fields in k-position space to fields in k-omega space.
 
     Parameters:
         fields (dict): A dictionary with field names as keys and dictionaries containing the field data,
             axis labels, and axis units as values.
+        mode (str): The FFT mode to use. Can be either "numpy", "numpy-lowmem" or "pyfftw". Defaults to "numpy".
+        threads (int, optional): The number of threads to use for pyfftw. If None, uses os.cpu_count().
 
     Returns:
         dict: A dictionary with the same keys as the input, but with the field data and axis units
@@ -362,7 +365,7 @@ def fft_xyo_to_kko(fields: dict, low_memory_mode=False) -> dict:
             unit_omega,
         ], "Field units must be [unit_m, unit_m, unit_omega]"
 
-        if low_memory_mode:
+        if mode == "numpy-lowmem":
             data = fields[field_name]["data"]
             nx, ny, no = data.shape
             data_kko = np.empty_like(data, dtype=np.complex128)
@@ -371,8 +374,29 @@ def fft_xyo_to_kko(fields: dict, low_memory_mode=False) -> dict:
             for o_idx in range(no):
                 np.fft.fft2(data[:, :, o_idx], out=tmp)
                 data_kko[:, :, o_idx] = np.fft.fftshift(tmp)
-        else:
+        elif mode == "numpy":
             data_kko = np.fft.fftshift(np.fft.fft2(fields[field_name]["data"], axes=(0, 1)), axes=(0, 1))
+        elif mode == "pyfftw":
+            data = fields[field_name]["data"]
+            nx, ny, no = data.shape
+            data_kko = np.empty_like(data, dtype=np.complex128)
+
+            fft_in = pyfftw.empty_aligned((nx, ny), dtype="complex128")
+            fft_out = pyfftw.empty_aligned((nx, ny), dtype="complex128")
+
+            if threads is None:
+                threads = os.cpu_count()
+
+            fft2_plan = pyfftw.FFTW(
+                fft_in, fft_out, axes=(0, 1), direction="FFTW_FORWARD", flags=("FFTW_MEASURE",), threads=threads
+            )
+
+            for o_idx in range(no):
+                fft_in[:] = data[:, :, o_idx]
+                fft2_plan()
+                data_kko[:, :, o_idx] = np.fft.fftshift(fft_out)
+        else:
+            raise ValueError("Unknown FFT mode")
 
         ret_dict.setdefault(field_name, {"data": data_kko})
 
