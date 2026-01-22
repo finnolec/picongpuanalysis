@@ -340,7 +340,7 @@ def compute_shadowgram(fields: dict, low_memory_mode: bool = True) -> dict:
 
 
 @typeguard.typechecked
-def fft_xyo_to_kko(fields: dict, mode="pyfftw", threads=None) -> dict:
+def fft_xyo_to_kko(fields: dict, mode="pyfftw", threads=None, window_function_x=None, window_function_y=None) -> dict:
     """
     Fourier transform fields in k-position space to fields in k-omega space.
 
@@ -349,6 +349,8 @@ def fft_xyo_to_kko(fields: dict, mode="pyfftw", threads=None) -> dict:
             axis labels, and axis units as values.
         mode (str): The FFT mode to use. Can be either "numpy" or "pyfftw". Defaults to "pyfftw".
         threads (int, optional): The number of threads to use for pyfftw. If None, uses os.cpu_count().
+        window_function_x (callable, optional): A window function to apply along the x-axis before FFT.
+        window_function_y (callable, optional): A window function to apply along the y-axis before FFT.
 
     Returns:
         dict: A dictionary with the same keys as the input, but with the field data and axis units
@@ -365,10 +367,20 @@ def fft_xyo_to_kko(fields: dict, mode="pyfftw", threads=None) -> dict:
             unit_omega,
         ], "Field units must be [unit_m, unit_m, unit_omega]"
 
+        mask = np.ones(fields[field_name]["data"].shape, dtype=np.float64)
+
+        if window_function_x is not None:
+            window_x = window_function_x(fields[field_name]["data"].shape[0])
+            mask *= window_x[:, np.newaxis, np.newaxis]
+
+        if window_function_y is not None:
+            window_y = window_function_y(fields[field_name]["data"].shape[1])
+            mask *= window_y[np.newaxis, :, np.newaxis]
+
         if mode == "numpy":
-            data_kko = np.fft.fftshift(np.fft.fft2(fields[field_name]["data"], axes=(0, 1)), axes=(0, 1))
+            data_kko = np.fft.fftshift(np.fft.fft2(fields[field_name]["data"] * mask, axes=(0, 1)), axes=(0, 1))
         elif mode == "pyfftw":
-            data = fields[field_name]["data"]
+            data = fields[field_name]["data"] * mask
             nx, ny, no = data.shape
             data_kko = np.empty_like(data, dtype=np.complex128)
 
