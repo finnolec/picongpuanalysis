@@ -534,13 +534,13 @@ def ifft_kko_to_xyt(fields: dict, mode="pyfftw", threads=None) -> dict:
                 fft1_in,
                 fft1_out,
                 axes=(2,),
-                direction="FFTW_FORWARD",
+                direction="FFTW_BACKWARD",
                 flags=("FFTW_MEASURE",),
                 threads=threads,
             )
 
             fft1_plan()
-            data_xyt = fft1_out / no
+            data_xyt = fft1_out
         else:
             raise ValueError("Unknown FFT mode")
 
