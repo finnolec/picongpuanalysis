@@ -527,7 +527,7 @@ def ifft_kko_to_xyt(fields: dict, mode="pyfftw", threads=None) -> dict:
                 fft2_plan()
                 data_xyt[:, :, o_idx] = fft2_out
 
-            fft1_in = data_xyt
+            fft1_in = pyfftw.empty_aligned((nx, ny, no), dtype=np.complex128)
             fft1_out = pyfftw.empty_aligned((nx, ny, no), dtype=np.complex128)
 
             fft1_plan = pyfftw.FFTW(
@@ -538,6 +538,8 @@ def ifft_kko_to_xyt(fields: dict, mode="pyfftw", threads=None) -> dict:
                 flags=("FFTW_MEASURE",),
                 threads=threads,
             )
+
+            fft1_in[:] = data_xyt
 
             fft1_plan()
             data_xyt = fft1_out
