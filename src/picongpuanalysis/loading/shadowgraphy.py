@@ -7,18 +7,19 @@ from picongpuanalysis.utils.units import unit_m, unit_unitless, unit_omega
 
 
 @typeguard.typechecked
-def load_shadowgram(path: str, iteration: int) -> dict:
+def load_shadowgram(path: str, iteration: int, options: dict = {}) -> dict:
     """
     Load the shadowgram from the shadowgraphy plugin.
 
     Parameters:
         path (str): The path to the shadowgraphy plugin openPMD file.
         iteration (int): The iteration at which the shadowgram is loaded.
+        options (dict): Dictionary of options to be passed to openPMD Series.
 
     Returns:
         dict: A dictionary containing the shadowgram.
     """
-    series = opmd.Series(path, opmd.Access.read_only)
+    series = opmd.Series(path, opmd.Access.read_only, options=options)
     i = series.iterations[iteration]
 
     chunkdata = i.meshes["shadowgram"][opmd.Mesh_Record_Component.SCALAR].load_chunk()
@@ -82,7 +83,13 @@ def load_shadowgraphy_fourier(path: str, iteration: int, use_si_units: bool = Tr
 
 @typeguard.typechecked
 def load_shadowgraphy_fourier_component(
-    path: str, iteration: int, field_name: str, field_component: str, field_sign: str, use_si_units: bool = True
+    path: str,
+    iteration: int,
+    field_name: str,
+    field_component: str,
+    field_sign: str,
+    use_si_units: bool = True,
+    options: dict = {},
 ) -> dict:
     """
     Loads single shadowgraphy plugin fourier data component from an openPMD file.
@@ -94,6 +101,7 @@ def load_shadowgraphy_fourier_component(
         field_component (str): The component of the field. Must be "x" or "y".
         field_sign (str): The sign of the field. Must be "positive" or "negative".
         use_si_units (bool): Whether to use SI units for the data. Defaults to True.
+        options (dict): Dictionary of options to be passed to openPMD Series.
 
     Returns:
         dict: A dictionary containing the loaded shadowgraphy fourier data.
@@ -104,7 +112,7 @@ def load_shadowgraphy_fourier_component(
 
     opmd_name, opmd_component = _get_openpmd_field_component_name(field_name, field_component, field_sign)
 
-    series = opmd.Series(path, opmd.Access.read_only)
+    series = opmd.Series(path, opmd.Access.read_only, options=options)
     i = series.iterations[iteration]
 
     chunkdata = i.meshes[opmd_name][opmd_component].load_chunk()
