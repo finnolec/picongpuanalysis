@@ -51,7 +51,7 @@ def load_shadowgram(path: str, iteration: int, options: dict = {}) -> dict:
 
 
 @typeguard.typechecked
-def load_shadowgraphy_fourier(path: str, iteration: int, use_si_units: bool = True) -> dict:
+def load_shadowgraphy_fourier(path: str, iteration: int, use_si_units: bool = True, options: dict = {}) -> dict:
     """
     Loads full shadowgraphy plugin fourier data from an openPMD file.
 
@@ -59,6 +59,7 @@ def load_shadowgraphy_fourier(path: str, iteration: int, use_si_units: bool = Tr
         path (str): The path to the shadowgraphy plugin openPMD file.
         iteration (int): The iteration number of simulation.
         use_si_units (bool): Whether to use SI units for the data. Defaults to True.
+        options (dict): Dictionary of options to be passed to openPMD Series.
 
     Returns:
         dict: A dictionary containing the loaded shadowgraphy fourier data.
@@ -74,7 +75,7 @@ def load_shadowgraphy_fourier(path: str, iteration: int, use_si_units: bool = Tr
         ret_dict = {
             **ret_dict,
             ret_key: load_shadowgraphy_fourier_component(
-                path, iteration, field_name, field_component, field_sign, use_si_units=use_si_units
+                path, iteration, field_name, field_component, field_sign, use_si_units=use_si_units, options=options
             ),
         }
 
