@@ -270,6 +270,32 @@ def apply_custom_mask(fields: dict, mask: np.ndarray, overwrite_fields: bool = T
 
 
 @typeguard.typechecked
+def apply_polarization_filter(fields: dict, filter_orientation: str, overwrite_fields: bool = True) -> dict:
+    assert (
+        "Ex" in fields.keys() and "Ey" in fields.keys() and "Bx" in fields.keys() and "By" in fields.keys()
+    ), "Fields must contain Ex, Ey, Bx, and By"
+    assert (
+        fields["Ex"]["axis_units"]
+        == fields["Ey"]["axis_units"]
+        == fields["Bx"]["axis_units"]
+        == fields["By"]["axis_units"]
+        == [unit_m, unit_m, unit_t]
+    ), "Field units must be [unit_m, unit_m, unit_t]"
+    assert filter_orientation == "x" or filter_orientation == "y"
+
+    if not overwrite_fields:
+        fields = copy.deepcopy(fields)
+
+    if filter_orientation == "x":
+        fields["Ey"]["data"] = np.zeros(fields["Ey"]["data"].shape)
+
+    if filter_orientation == "y":
+        fields["Ex"]["data"] = np.zeros(fields["Ex"]["data"].shape)
+
+    return fields
+
+
+@typeguard.typechecked
 def compute_shadowgram(fields: dict, low_memory_mode: bool = True) -> dict:
     """
     Compute a shadowgram in z direction from the given electric and magnetic fields.
