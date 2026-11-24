@@ -60,6 +60,9 @@ def apply_band_pass_filter(
             else:
                 raise ValueError("field_name must be positive or negative")
 
+            if max_idx >= fields[field_name]["omega_space"].shape[0]:
+                max_idx = fields[field_name]["omega_space"].shape[0] - 1
+
             fields[field_name]["data"] = masked_fields[:, :, min_idx:max_idx]
             fields[field_name]["omega_space_full"] = copy.deepcopy(fields[field_name]["omega_space"])
             fields[field_name]["omega_space"] = fields[field_name]["omega_space"][min_idx:max_idx]
